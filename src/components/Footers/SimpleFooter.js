@@ -38,16 +38,16 @@ class SimpleFooter extends React.Component {
             <Row className=" row-grid align-items-center mb-5">
               <Col lg="6">
                 <h3 className=" text-primary font-weight-light mb-2">
-                  Thank you for supporting us!
+                  Thank you! (edit in SimpleFooter.js)
                 </h3>
                 <h4 className=" mb-0 font-weight-light">
-                  Let's get in touch on any of these platforms.
+                  Let's get in touch on any of these platforms. (Edit in src/scss/variables.scss)
                 </h4>
               </Col>
               <Col className="text-lg-center btn-wrapper" lg="6">
                 <Button
                   className="btn-icon-only rounded-circle"
-                  color="twitter"
+                  // color="twitter"
                   href="https://twitter.com/creativetim"
                   id="tooltip475038074"
                   target="_blank"
@@ -61,7 +61,7 @@ class SimpleFooter extends React.Component {
                 </UncontrolledTooltip>
                 <Button
                   className="btn-icon-only rounded-circle ml-1"
-                  color="facebook"
+                  // color="facebook"
                   href="https://www.facebook.com/creativetim"
                   id="tooltip837440414"
                   target="_blank"
@@ -75,7 +75,7 @@ class SimpleFooter extends React.Component {
                 </UncontrolledTooltip>
                 <Button
                   className="btn-icon-only rounded-circle ml-1"
-                  color="dribbble"
+                  // color="dribbble"
                   href="https://dribbble.com/creativetim"
                   id="tooltip829810202"
                   target="_blank"
@@ -89,7 +89,7 @@ class SimpleFooter extends React.Component {
                 </UncontrolledTooltip>
                 <Button
                   className="btn-icon-only rounded-circle ml-1"
-                  color="github"
+                  // color="github"
                   href="https://github.com/creativetimofficial"
                   id="tooltip495507257"
                   target="_blank"
