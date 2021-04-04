@@ -1,4 +1,38 @@
-# [Argon Design System React](https://demos.creative-tim.com/argon-design-system-react?ref=adsr-github-readme) [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&logo=twitter)](https://twitter.com/home?status=Argon%20Design%20System%20is%20a%20Free%20Bootstrap%204,%20React%20and%20Reactstrap%20Dashboard%20made%20using%20create-react-app%20%E2%9D%A4%EF%B8%8F%0Ahttps%3A//demos.creative-tim.com/argon-design-system-react%20%23react%20%23reactstrap%20%23createreactapp%20%23argon%20%23argondesign%20%23reactkit%20%23argonreact%20%23reactdesign%20%23bootstrap%20%23design%20%23uikit%20%23freebie%20%20via%20%40CreativeTim)
+# Site URL
+
+https://priceless-goodall-94e298.netlify.app/
+
+Number and name of feature: ________Feature 1 Deployment________________________
+
+Estimate of time needed to complete: ___5m__
+
+Start time: ___220__
+
+Finish time: ___226__
+
+Actual time needed to complete: ___6m__
+
+---
+
+Number and name of feature: ________Modify the Contents_______________________
+
+Estimate of time needed to complete: ___3hr__
+
+Start time: ___228__
+
+Finish time: _____
+
+Actual time needed to complete: _____
+
+---
+
+Edit font in: src/assets/vendor/font-awesome/css/font-awesome.css
+Edit colors in: src/assets/scss/argon-design-system/variables.scss
+Edit Nav: src/components/Navbars/DemoNavbar.js
+Route Path / Path Register class recording etc: https://frontrowviews.com/Home/Event/Play/60414cc3af0d2b19b4abb126
+
+
+## [Argon Design System React](https://demos.creative-tim.com/argon-design-system-react?ref=adsr-github-readme) [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&logo=twitter)](https://twitter.com/home?status=Argon%20Design%20System%20is%20a%20Free%20Bootstrap%204,%20React%20and%20Reactstrap%20Dashboard%20made%20using%20create-react-app%20%E2%9D%A4%EF%B8%8F%0Ahttps%3A//demos.creative-tim.com/argon-design-system-react%20%23react%20%23reactstrap%20%23createreactapp%20%23argon%20%23argondesign%20%23reactkit%20%23argonreact%20%23reactdesign%20%23bootstrap%20%23design%20%23uikit%20%23freebie%20%20via%20%40CreativeTim)
 
 
  ![version](https://img.shields.io/badge/version-1.1.0-blue.svg)  ![license](https://img.shields.io/badge/license-MIT-blue.svg) [![GitHub issues open](https://img.shields.io/github/issues/creativetimofficial/argon-design-system-react.svg?maxAge=2592000)](https://github.com/creativetimofficial/argon-design-system-react/issues?q=is%3Aopen+is%3Aissue) [![GitHub issues closed](https://img.shields.io/github/issues-closed-raw/creativetimofficial/argon-design-system-react.svg?maxAge=2592000)](https://github.com/creativetimofficial/argon-design-system-react/issues?q=is%3Aissue+is%3Aclosed) [![Join the chat at https://gitter.im/NIT-dgp/General](https://badges.gitter.im/NIT-dgp/General.svg)](https://gitter.im/creative-tim-general/Lobby) [![Chat](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/E4aHAQy)

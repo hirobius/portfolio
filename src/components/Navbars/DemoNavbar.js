@@ -176,21 +176,24 @@ class DemoNavbar extends React.Component {
                   <UncontrolledDropdown nav>
                     <DropdownToggle nav>
                       <i className="ni ni-collection d-lg-none mr-1" />
-                      <span className="nav-link-inner--text">Examples</span>
+                      <span className="nav-link-inner--text">Menu</span>
                     </DropdownToggle>
                     <DropdownMenu>
-                      <DropdownItem to="/landing-page" tag={Link}>
+                      {/* <DropdownItem to="/landing-page" tag={Link}>
                         Landing
-                      </DropdownItem>
+                      </DropdownItem> */}
                       <DropdownItem to="/profile-page" tag={Link}>
                         Profile
                       </DropdownItem>
-                      <DropdownItem to="/login-page" tag={Link}>
+                      <DropdownItem to="/portfolio-page" tag={Link}>
+                        Portfolio
+                      </DropdownItem>
+                      {/* <DropdownItem to="/login-page" tag={Link}>
                         Login
-                      </DropdownItem>
-                      <DropdownItem to="/register-page" tag={Link}>
+                      </DropdownItem> */}
+                      {/* <DropdownItem to="/register-page" tag={Link}>
                         Register
-                      </DropdownItem>
+                      </DropdownItem> */}
                     </DropdownMenu>
                   </UncontrolledDropdown>
                 </Nav>
@@ -259,8 +262,8 @@ class DemoNavbar extends React.Component {
                       Star us on Github
                     </UncontrolledTooltip>
                   </NavItem>
-                  <NavItem className="d-none d-lg-block ml-lg-4">
-                    <Button
+                  {/* <NavItem className="d-none d-lg-block ml-lg-4"> */}
+                    {/* <Button
                       className="btn-neutral btn-icon"
                       color="default"
                       href="https://www.creative-tim.com/product/argon-design-system-react?ref=adsr-navbar"
@@ -272,8 +275,8 @@ class DemoNavbar extends React.Component {
                       <span className="nav-link-inner--text ml-1">
                         Download
                       </span>
-                    </Button>
-                  </NavItem>
+                    </Button> */}
+                  {/* </NavItem> */}
                 </Nav>
               </UncontrolledCollapse>
             </Container>
