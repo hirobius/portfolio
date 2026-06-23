@@ -24,9 +24,9 @@ const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 // Faceted, twisted, *triangular* tube — a 6-sided cross-section swept along a
 // rounded-triangle path (apex up) while spinning, so it reads as a twisted rope
 // shaped into a leaning "A".
-const PATH_RADIUS = 0.6; // overall scale of the triangle
-const TRI_AMOUNT = 0.2; // deltoid roundness: 0 = circle, ~0.3 = sharper triangular corners
-const TUBE_RADIUS = 0.26; // radius of the faceted cross-section (chunky — bold facets)
+const PATH_RADIUS = 0.62; // overall scale of the triangle
+const TRI_AMOUNT = 0.1; // deltoid roundness: lower = rounder corners (was 0.2 — pinched at the points)
+const TUBE_RADIUS = 0.24; // radius of the faceted cross-section (chunky — bold facets)
 const RADIAL_SEGMENTS = 6; // 6 big facets — the "bigger ridges" that twist (no tiny flutes)
 const TUBULAR_SEGMENTS = 300; // segments along the loop
 const TWIST_TURNS = 2.0; // bold twist of the big facets — the möbius fold reads clearly
