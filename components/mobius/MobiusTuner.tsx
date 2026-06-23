@@ -4,37 +4,74 @@
  * MobiusTuner — temporary dev-only control panel for dialing in the möbius.
  * Rendered only when the URL has `?tune`. Remove this component (and its mount
  * in MobiusMount) for production once the values are locked in.
+ *
+ * Touch-sized controls; collapsible via the Hide button. Self-contained styles
+ * (injected <style>) so it lifts out cleanly.
  */
 
 import { useState } from 'react';
-import type { MobiusConfig } from './mobiusConfig';
+import { DEFAULT_MOBIUS_CONFIG, type MobiusConfig } from './mobiusConfig';
 
-type Control = {
-  key: keyof MobiusConfig;
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-};
+type NumKey = {
+  [K in keyof MobiusConfig]: MobiusConfig[K] extends number ? K : never;
+}[keyof MobiusConfig];
 
-const GEOMETRY: Control[] = [
-  { key: 'pathRadius', label: 'Path radius (scale)', min: 0.4, max: 1.0, step: 0.01 },
-  { key: 'triAmount', label: 'Triangularity', min: 0, max: 0.3, step: 0.005 },
-  { key: 'tubeRadius', label: 'Tube thickness', min: 0.1, max: 0.36, step: 0.005 },
-  { key: 'fluteCount', label: 'Flute count', min: 0, max: 12, step: 1 },
-  { key: 'fluteDepth', label: 'Flute depth', min: 0, max: 0.5, step: 0.01 },
-  { key: 'twistTurns', label: 'Twist turns', min: 0, max: 6, step: 0.5 },
-  { key: 'radialSegments', label: 'Radial segments', min: 6, max: 96, step: 6 },
-  { key: 'tubularSegments', label: 'Tubular segments', min: 120, max: 600, step: 30 },
+type Slider = [key: NumKey, label: string, min: number, max: number, step: number];
+
+const SECTIONS: { title: string; rows: Slider[] }[] = [
+  {
+    title: 'Geometry',
+    rows: [
+      ['pathRadius', 'Scale', 0.4, 1.0, 0.01],
+      ['triAmount', 'Triangularity', 0, 0.3, 0.005],
+      ['tubeRadius', 'Tube thickness', 0.1, 0.36, 0.005],
+      ['fluteCount', 'Flute count', 0, 12, 1],
+      ['fluteDepth', 'Flute depth', 0, 0.5, 0.01],
+      ['twistTurns', 'Twist turns', 0, 6, 0.5],
+      ['radialSegments', 'Radial segments', 6, 96, 6],
+      ['tubularSegments', 'Tubular segments', 120, 600, 30],
+    ],
+  },
+  {
+    title: 'Motion',
+    rows: [
+      ['rollSpeed', 'Roll speed', 0, 1.5, 0.05],
+      ['autoRotateX', 'Auto-rotate X', -1, 1, 0.02],
+      ['autoRotateY', 'Auto-rotate Y', -1, 1, 0.02],
+      ['autoRotateZ', 'Auto-rotate Z', -1, 1, 0.02],
+      ['baseTiltX', 'Tilt (forward lean)', -0.9, 0.4, 0.02],
+    ],
+  },
+  {
+    title: 'Material',
+    rows: [
+      ['roughness', 'Roughness', 0, 1, 0.02],
+      ['metalness', 'Metalness', 0, 0.6, 0.02],
+      ['emissiveIntensity', 'Emissive', 0, 0.3, 0.01],
+    ],
+  },
+  {
+    title: 'Color',
+    rows: [
+      ['hue', 'Hue', 0, 360, 1],
+      ['saturation', 'Saturation', 0, 1, 0.01],
+      ['lightness', 'Lightness', 0, 1, 0.01],
+    ],
+  },
+  {
+    title: 'Lighting',
+    rows: [
+      ['ambient', 'Ambient', 0, 1, 0.02],
+      ['keyStrength', 'Key strength', 0, 4, 0.05],
+      ['fillFront', 'Front fill', 0, 2, 0.05],
+      ['fillSide', 'Side fill', 0, 2, 0.05],
+      ['lightAzimuth', 'Light azimuth°', 0, 360, 1],
+      ['lightElevation', 'Light elevation°', -80, 80, 1],
+    ],
+  },
 ];
 
-const LOOK: Control[] = [
-  { key: 'rollSpeed', label: 'Roll speed', min: 0, max: 1.5, step: 0.05 },
-  { key: 'baseTiltX', label: 'Tilt (forward lean)', min: -0.9, max: 0.4, step: 0.02 },
-  { key: 'roughness', label: 'Roughness', min: 0, max: 1, step: 0.02 },
-  { key: 'metalness', label: 'Metalness', min: 0, max: 0.6, step: 0.02 },
-  { key: 'emissiveIntensity', label: 'Emissive', min: 0, max: 0.3, step: 0.01 },
-];
+const decimals = (step: number) => (step >= 1 ? 0 : step >= 0.01 ? 2 : 3);
 
 export function MobiusTuner({
   config,
@@ -43,9 +80,10 @@ export function MobiusTuner({
   config: MobiusConfig;
   onChange: (next: MobiusConfig) => void;
 }) {
+  const [open, setOpen] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  const set = (key: keyof MobiusConfig, value: number) =>
+  const set = (key: keyof MobiusConfig, value: number | boolean) =>
     onChange({ ...config, [key]: value });
 
   const copy = async () => {
@@ -58,86 +96,175 @@ export function MobiusTuner({
     }
   };
 
-  const row = (c: Control) => (
-    <label key={c.key} style={styles.row}>
-      <span style={styles.label}>
-        {c.label}
-        <b style={styles.value}>{Number(config[c.key]).toFixed(c.step < 1 ? 3 : 0)}</b>
-      </span>
-      <input
-        type="range"
-        min={c.min}
-        max={c.max}
-        step={c.step}
-        value={config[c.key]}
-        onChange={(e) => set(c.key, parseFloat(e.target.value))}
-        style={styles.range}
-      />
-    </label>
-  );
+  if (!open) {
+    return (
+      <>
+        <style>{CSS}</style>
+        <button className="mbx-fab" onClick={() => setOpen(true)}>
+          ⚙ Tune
+        </button>
+      </>
+    );
+  }
+
+  const swatch = config.useCustomColor
+    ? `hsl(${config.hue}, ${Math.round(config.saturation * 100)}%, ${Math.round(config.lightness * 100)}%)`
+    : 'transparent';
 
   return (
-    <div style={styles.panel}>
-      <div style={styles.header}>
-        <span>möbius tuner</span>
-        <button onClick={copy} style={styles.copy}>
-          {copied ? 'copied ✓' : 'copy config'}
-        </button>
+    <>
+      <style>{CSS}</style>
+      <div className="mbx-panel">
+        <div className="mbx-head">
+          <span className="mbx-title">möbius tuner</span>
+          <button className="mbx-hide" onClick={() => setOpen(false)}>
+            Hide
+          </button>
+        </div>
+        <div className="mbx-body">
+          {SECTIONS.map((section) => (
+            <div key={section.title}>
+              <div className="mbx-sec">{section.title}</div>
+
+              {section.title === 'Material' && (
+                <div className="mbx-toggle">
+                  <button
+                    className={'mbx-tbtn' + (!config.flatShading ? ' on' : '')}
+                    onClick={() => set('flatShading', false)}
+                  >
+                    Smooth
+                  </button>
+                  <button
+                    className={'mbx-tbtn' + (config.flatShading ? ' on' : '')}
+                    onClick={() => set('flatShading', true)}
+                  >
+                    Faceted
+                  </button>
+                </div>
+              )}
+
+              {section.title === 'Color' && (
+                <div className="mbx-toggle" style={{ alignItems: 'center' }}>
+                  <button
+                    className={'mbx-tbtn' + (!config.useCustomColor ? ' on' : '')}
+                    onClick={() => set('useCustomColor', false)}
+                  >
+                    Theme color
+                  </button>
+                  <button
+                    className={'mbx-tbtn' + (config.useCustomColor ? ' on' : '')}
+                    onClick={() => set('useCustomColor', true)}
+                  >
+                    Custom
+                  </button>
+                  <span className="mbx-swatch" style={{ background: swatch }} />
+                </div>
+              )}
+
+              {section.rows.map(([key, label, min, max, step]) => {
+                const dec = decimals(step);
+                const value = config[key] as number;
+                return (
+                  <label key={key} className="mbx-row">
+                    <span className="mbx-label">
+                      {label}
+                      <b className="mbx-val">{value.toFixed(dec)}</b>
+                    </span>
+                    <input
+                      className="mbx-range"
+                      type="range"
+                      min={min}
+                      max={max}
+                      step={step}
+                      value={value}
+                      onChange={(e) => set(key, parseFloat(e.target.value))}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          ))}
+
+          <div className="mbx-btns">
+            <button className="mbx-action mbx-copy" onClick={copy}>
+              {copied ? 'copied ✓' : 'copy config'}
+            </button>
+            <button className="mbx-action mbx-reset" onClick={() => onChange(DEFAULT_MOBIUS_CONFIG)}>
+              reset
+            </button>
+          </div>
+        </div>
       </div>
-      <div style={styles.section}>Geometry</div>
-      {GEOMETRY.map(row)}
-      <div style={styles.section}>Motion &amp; material</div>
-      {LOOK.map(row)}
-      <button onClick={() => onChange({ ...config })} style={{ display: 'none' }} />
-    </div>
+    </>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  panel: {
-    position: 'fixed',
-    top: 16,
-    left: 16,
-    zIndex: 9999,
-    width: 264,
-    maxHeight: 'calc(100vh - 32px)',
-    overflowY: 'auto',
-    padding: '12px 14px',
-    borderRadius: 10,
-    background: 'rgba(18,18,20,0.92)',
-    backdropFilter: 'blur(8px)',
-    color: '#e8e8ea',
-    font: '11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace',
-    boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-    pointerEvents: 'auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    fontWeight: 600,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-  },
-  copy: {
-    font: 'inherit',
-    color: '#9db4ff',
-    background: 'rgba(80,100,245,0.15)',
-    border: '1px solid rgba(120,140,255,0.35)',
-    borderRadius: 6,
-    padding: '3px 8px',
-    cursor: 'pointer',
-  },
-  section: {
-    margin: '10px 0 4px',
-    opacity: 0.55,
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    fontSize: 9.5,
-  },
-  row: { display: 'block', marginBottom: 7 },
-  label: { display: 'flex', justifyContent: 'space-between', marginBottom: 2 },
-  value: { color: '#9db4ff', fontWeight: 600 },
-  range: { width: '100%', accentColor: '#5064f5', cursor: 'pointer' },
-};
+const CSS = `
+.mbx-panel, .mbx-fab { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; box-sizing: border-box; }
+.mbx-panel * { box-sizing: border-box; }
+.mbx-panel {
+  position: fixed; z-index: 10000; right: 16px; top: 16px; width: 330px;
+  max-height: calc(100dvh - 32px); overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: rgba(14,14,18,0.95); backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+  color: #e9e9ee; box-shadow: 0 12px 48px rgba(0,0,0,0.55); pointer-events: auto;
+}
+.mbx-head {
+  position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between;
+  align-items: center; padding: 14px 16px; background: rgba(14,14,18,0.98);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.mbx-title { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #9db4ff; font-weight: 600; }
+.mbx-hide {
+  font: inherit; font-size: 13px; color: #cfd6ff; background: rgba(80,100,245,0.16);
+  border: 1px solid rgba(120,140,255,0.4); border-radius: 8px; padding: 0 16px;
+  min-height: 36px; cursor: pointer;
+}
+.mbx-body { padding: 6px 16px 22px; }
+.mbx-sec {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(157,180,255,0.62); margin: 18px 0 10px;
+}
+.mbx-row { display: block; margin-bottom: 16px; }
+.mbx-label { display: flex; justify-content: space-between; font-size: 13.5px; color: #c8c8d2; margin-bottom: 9px; }
+.mbx-val { color: #9db4ff; font-weight: 600; }
+.mbx-range {
+  width: 100%; -webkit-appearance: none; appearance: none; height: 8px;
+  border-radius: 5px; background: rgba(255,255,255,0.14); outline: none; cursor: pointer; margin: 6px 0;
+}
+.mbx-range::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%;
+  background: #5064f5; border: 2px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.5); cursor: pointer;
+}
+.mbx-range::-moz-range-thumb {
+  width: 26px; height: 26px; border-radius: 50%; background: #5064f5; border: 2px solid #fff;
+}
+.mbx-toggle { display: flex; gap: 10px; margin-bottom: 14px; }
+.mbx-tbtn {
+  flex: 1; min-height: 42px; border-radius: 10px; font: inherit; font-size: 13px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); color: #aab0c4;
+}
+.mbx-tbtn.on { background: rgba(80,100,245,0.3); border-color: rgba(120,140,255,0.75); color: #fff; }
+.mbx-swatch { width: 42px; height: 42px; flex-shrink: 0; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); }
+.mbx-btns { display: flex; gap: 12px; margin-top: 22px; }
+.mbx-action {
+  flex: 1; min-height: 46px; border-radius: 11px; font: inherit; font-size: 13px;
+  letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; border: 1px solid;
+}
+.mbx-copy { background: rgba(80,140,255,0.14); border-color: rgba(80,140,255,0.4); color: #bcd2ff; }
+.mbx-copy:active { background: rgba(80,140,255,0.3); }
+.mbx-reset { background: rgba(255,90,90,0.1); border-color: rgba(255,90,90,0.3); color: #ff9d9d; }
+.mbx-fab {
+  position: fixed; z-index: 10000; right: 16px; bottom: 16px; min-height: 50px; padding: 0 22px;
+  border-radius: 26px; font-size: 14px; letter-spacing: 0.08em; color: #fff; cursor: pointer;
+  background: rgba(80,100,245,0.92); border: 1px solid rgba(160,180,255,0.6);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5); pointer-events: auto;
+}
+@media (max-width: 767px) {
+  .mbx-panel {
+    right: 0; left: 0; top: auto; bottom: 0; width: 100%; max-height: 64dvh;
+    border-radius: 16px 16px 0 0; border-bottom: none;
+  }
+  .mbx-body { padding-bottom: 30px; }
+}
+`;

@@ -13,12 +13,32 @@ export type MobiusConfig = {
   tubularSegments: number; // tessellation along the loop
   twistTurns: number; // how many turns the cross-section makes along the loop
 
-  // Motion + material (applied without a rebuild)
+  // Motion
   rollSpeed: number; // radians/sec the surface flows ("roll")
+  autoRotateX: number; // continuous whole-shape spin (rad/sec)
+  autoRotateY: number;
+  autoRotateZ: number;
   baseTiltX: number; // resting forward tilt
-  roughness: number; // material roughness
-  metalness: number; // material metalness
+
+  // Material
+  flatShading: boolean; // faceted vs smooth
+  roughness: number;
+  metalness: number;
   emissiveIntensity: number; // self-lit floor so shadows don't go black
+
+  // Color (override the theme color when useCustomColor is on)
+  useCustomColor: boolean;
+  hue: number; // 0–360
+  saturation: number; // 0–1
+  lightness: number; // 0–1
+
+  // Lighting
+  ambient: number;
+  keyStrength: number;
+  fillFront: number;
+  fillSide: number;
+  lightAzimuth: number; // degrees around the vertical axis
+  lightElevation: number; // degrees up/down
 };
 
 export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
@@ -30,9 +50,27 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   radialSegments: 48,
   tubularSegments: 420,
   twistTurns: 2,
+
   rollSpeed: 0.5,
+  autoRotateX: 0,
+  autoRotateY: 0,
+  autoRotateZ: 0,
   baseTiltX: -0.34,
+
+  flatShading: false,
   roughness: 0.5,
   metalness: 0,
   emissiveIntensity: 0.06,
+
+  useCustomColor: false,
+  hue: 230,
+  saturation: 0.85,
+  lightness: 0.6,
+
+  ambient: 0.45,
+  keyStrength: 1.7,
+  fillFront: 0.6,
+  fillSide: 0.4,
+  lightAzimuth: 325,
+  lightElevation: 35,
 };

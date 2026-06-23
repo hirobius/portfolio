@@ -62,6 +62,11 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
     };
   }, []);
 
+  // The tuner can override the theme color with a custom HSL value.
+  const effectiveColor = config.useCustomColor
+    ? `hsl(${config.hue}, ${Math.round(config.saturation * 100)}%, ${Math.round(config.lightness * 100)}%)`
+    : color;
+
   return (
     <Canvas
       aria-hidden
@@ -70,7 +75,7 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
       dpr={[1, 1.8]}
       style={{ width: '100%', height: '100%', background: 'transparent', pointerEvents: 'none' }}
     >
-      <MobiusScene mouseRef={mouseRef} color={color} reducedMotion={reducedMotion} config={config} />
+      <MobiusScene mouseRef={mouseRef} color={effectiveColor} reducedMotion={reducedMotion} config={config} />
     </Canvas>
   );
 }

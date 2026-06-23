@@ -134,6 +134,7 @@ function buildMobiusTube(cfg: MobiusConfig): THREE.BufferGeometry {
 
 export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   const groupRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
 
   // Keep the latest config available to the (long-lived) frame loop.
   const cfgRef = useRef(config);
@@ -202,6 +203,12 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => () => material.dispose(), [material]);
+
+  // flatShading toggling requires a recompile, so guard it behind an effect.
+  useEffect(() => {
+    material.flatShading = config.flatShading;
+    material.needsUpdate = true;
+  }, [config.flatShading, material]);
 
   // Material params that don't need a recompile.
   material.roughness = config.roughness;
@@ -289,18 +296,35 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
     const tiltY = mx * 0.3;
     group.rotation.x += (tiltX - group.rotation.x) * lerp;
     group.rotation.y += (tiltY - group.rotation.y) * lerp;
+
+    // Optional whole-shape auto-rotation (for inspecting; 0 by default).
+    const mesh = meshRef.current;
+    if (mesh) {
+      mesh.rotation.x += cfg.autoRotateX * d;
+      mesh.rotation.y += cfg.autoRotateY * d;
+      mesh.rotation.z += cfg.autoRotateZ * d;
+    }
   });
+
+  // Key light direction from azimuth/elevation.
+  const az = (config.lightAzimuth * Math.PI) / 180;
+  const el = (config.lightElevation * Math.PI) / 180;
+  const keyPos: [number, number, number] = [
+    Math.sin(az) * Math.cos(el) * 8,
+    Math.sin(el) * 8,
+    Math.cos(az) * Math.cos(el) * 8,
+  ];
 
   return (
     <>
-      {/* Soft, balanced studio lighting for a clean matte read (no harsh banding). */}
-      <ambientLight intensity={0.45} />
-      <directionalLight position={[-3, 4, 5]} intensity={1.7} />
-      <directionalLight position={[4, 1, 3]} intensity={0.6} />
-      <directionalLight position={[0, -3, -2]} intensity={0.4} />
+      {/* Config-driven studio lighting: key (by azimuth/elevation) + fills. */}
+      <ambientLight intensity={config.ambient} />
+      <directionalLight position={keyPos} intensity={config.keyStrength} />
+      <directionalLight position={[0, 0.5, 8]} intensity={config.fillFront} />
+      <directionalLight position={[7, 1, 2]} intensity={config.fillSide} />
 
       <group ref={groupRef} scale={0}>
-        <mesh geometry={geometry} material={material} />
+        <mesh ref={meshRef} geometry={geometry} material={material} />
       </group>
     </>
   );
