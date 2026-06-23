@@ -26,12 +26,10 @@ const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 // shaped into a leaning "A".
 const PATH_RADIUS = 0.6; // overall scale of the triangle
 const TRI_AMOUNT = 0.2; // deltoid roundness: 0 = circle, ~0.3 = sharper triangular corners
-const TUBE_RADIUS = 0.22; // base radius of the cross-section
-const FLUTE_COUNT = 6; // sculpted flutes — aligned to the 6 hex facets
-const FLUTE_DEPTH = 0.3; // how deep the flutes are scooped
-const RADIAL_SEGMENTS = 24; // 4 facets per flute — faceted (flat-shaded) so the twist stays crisp
-const TUBULAR_SEGMENTS = 360; // segments along the loop
-const TWIST_TURNS = 2.5; // cross-section turns along the path (eased from 3.5 — was over-torqued)
+const TUBE_RADIUS = 0.26; // radius of the faceted cross-section (chunky — bold facets)
+const RADIAL_SEGMENTS = 6; // 6 big facets — the "bigger ridges" that twist (no tiny flutes)
+const TUBULAR_SEGMENTS = 300; // segments along the loop
+const TWIST_TURNS = 2.0; // bold twist of the big facets — the möbius fold reads clearly
 
 const BASE_TILT_X = -0.34; // forward lean so the triangle reads like a tilted "A"
 
@@ -92,18 +90,16 @@ function buildMobiusTube(): THREE.BufferGeometry {
     const cy = cys[i];
     const nx = nxs[i];
     const ny = nys[i];
-    // The fluted cross-section is rotated by `twist` (growing with arc length),
-    // so it turns on the tube's own axis as it travels the loop and the flute
-    // edges spiral — the möbius-style twist (kept crisp by flat-shading).
+    // The faceted hexagon is rotated by `twist` (growing with arc length), so it
+    // turns on the tube's own axis as it travels the loop and the 6 big facet
+    // edges spiral — the bold möbius twist (kept crisp by flat-shading).
     const twist = totalTwist * (arc[i] / totalArc);
     for (let k = 0; k <= sides; k++) {
       const theta = (k / sides) * Math.PI * 2 + twist;
       const ct = Math.cos(theta);
       const st = Math.sin(theta);
-      // Fluted cross-section: scooped flutes between the ridges.
-      const r = TUBE_RADIUS * (1 + FLUTE_DEPTH * Math.cos(FLUTE_COUNT * theta));
       // vertex = C + r·(ct·N + st·B), with B = (0, 0, 1)
-      positions.push(cx + r * ct * nx, cy + r * ct * ny, r * st);
+      positions.push(cx + TUBE_RADIUS * ct * nx, cy + TUBE_RADIUS * ct * ny, TUBE_RADIUS * st);
     }
   }
 
