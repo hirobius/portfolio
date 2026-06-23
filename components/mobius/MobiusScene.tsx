@@ -26,12 +26,12 @@ const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 // shaped into a leaning "A".
 const PATH_RADIUS = 0.6; // overall scale of the triangle
 const TRI_AMOUNT = 0.2; // deltoid roundness: 0 = circle, ~0.3 = sharper triangular corners
-const TUBE_RADIUS = 0.24; // base radius of the cross-section
+const TUBE_RADIUS = 0.22; // base radius of the cross-section
 const FLUTE_COUNT = 6; // rounded ridges around the cross-section
-const FLUTE_DEPTH = 0.22; // how pronounced the rounded ridges are
+const FLUTE_DEPTH = 0.35; // pronounced rounded ridges (crisp spiral, but smooth-topped)
 const RADIAL_SEGMENTS = 96; // smooth rounded ridges (a multiple of FLUTE_COUNT)
-const TUBULAR_SEGMENTS = 420; // segments along the loop
-const TWIST_TURNS = 3.5; // cross-section turns along the path (back to the tighter twist)
+const TUBULAR_SEGMENTS = 480; // dense enough to resolve the tight twist smoothly
+const TWIST_TURNS = 3.5; // tight twist => the rounded ridges spiral into a dense rope
 
 const BASE_TILT_X = -0.34; // forward lean so the triangle reads like a tilted "A"
 
