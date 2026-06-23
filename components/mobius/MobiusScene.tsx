@@ -27,11 +27,11 @@ const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 const PATH_RADIUS = 0.6; // overall scale of the triangle
 const TRI_AMOUNT = 0.2; // deltoid roundness: 0 = circle, ~0.3 = sharper triangular corners
 const TUBE_RADIUS = 0.2; // base radius of the cross-section (skinny — avoids pinching at corners)
-const FLUTE_COUNT = 5; // rounded ridges running along the tube (fewer => twist is trackable)
-const FLUTE_DEPTH = 0.22; // how deep the valleys sink between the ridges
-const RADIAL_SEGMENTS = 100; // smooth rounded ridges (a multiple of FLUTE_COUNT)
-const TUBULAR_SEGMENTS = 400; // segments along the loop (resolves the twist smoothly)
-const TWIST_TURNS = 2; // full end-to-end twists; integer × FLUTE_COUNT closes the seam
+const FLUTE_COUNT = 6; // rope strands running along the tube
+const FLUTE_DEPTH = 0.42; // how deep the grooves sink between the strands
+const RADIAL_SEGMENTS = 96; // smooth rounded strands (a multiple of FLUTE_COUNT)
+const TUBULAR_SEGMENTS = 480; // dense enough to resolve the tight twist smoothly
+const TWIST_TURNS = 5; // tight rope twist (applied per arc-length for an even spiral)
 
 const BASE_TILT_X = -0.34; // forward lean so the triangle reads like a tilted "A"
 
@@ -50,6 +50,12 @@ function buildMobiusTube(): THREE.BufferGeometry {
   const sides = RADIAL_SEGMENTS;
   const rings = TUBULAR_SEGMENTS;
 
+  // ── Pass 1: sample the path, its planar frame, and cumulative arc length ──
+  const cxs = new Float64Array(rings + 1);
+  const cys = new Float64Array(rings + 1);
+  const nxs = new Float64Array(rings + 1);
+  const nys = new Float64Array(rings + 1);
+  const arc = new Float64Array(rings + 1);
   for (let i = 0; i <= rings; i++) {
     const u = (i / rings) * Math.PI * 2;
     const sinU = Math.sin(u);
@@ -63,23 +69,35 @@ function buildMobiusTube(): THREE.BufferGeometry {
     const cx = PATH_RADIUS * (-sinU + TRI_AMOUNT * sin2U);
     const cy = PATH_RADIUS * (cosU + TRI_AMOUNT * cos2U);
 
-    // Planar frame: tangent T = dC/du, in-plane normal N = T rotated −90°,
-    // binormal B = z. Keeps the tube perpendicular along the curve.
+    // Planar frame: tangent T = dC/du, in-plane normal N = T rotated −90°, B = z.
     let tx = PATH_RADIUS * (-cosU + 2 * TRI_AMOUNT * cos2U);
     let ty = PATH_RADIUS * (-sinU - 2 * TRI_AMOUNT * sin2U);
     const tl = Math.hypot(tx, ty) || 1;
     tx /= tl;
     ty /= tl;
-    const nx = ty;
-    const ny = -tx;
 
-    const twist = u * TWIST_TURNS;
+    cxs[i] = cx;
+    cys[i] = cy;
+    nxs[i] = ty;
+    nys[i] = -tx;
+    arc[i] = i > 0 ? arc[i - 1] + Math.hypot(cx - cxs[i - 1], cy - cys[i - 1]) : 0;
+  }
+  const totalArc = arc[rings] || 1;
+  const totalTwist = TWIST_TURNS * Math.PI * 2;
+
+  // ── Pass 2: sweep the fluted cross-section, twisting by ARC LENGTH so the
+  //    spiral is tight and even all the way around (not bunched at the corners) ──
+  for (let i = 0; i <= rings; i++) {
+    const cx = cxs[i];
+    const cy = cys[i];
+    const nx = nxs[i];
+    const ny = nys[i];
+    const twist = totalTwist * (arc[i] / totalArc);
     for (let k = 0; k <= sides; k++) {
       const theta = (k / sides) * Math.PI * 2 + twist;
       const ct = Math.cos(theta);
       const st = Math.sin(theta);
-      // Fluted cross-section: rounded ridges with sunken valleys between them.
-      // The flutes follow the twist, so the ridges spiral along the tube.
+      // Fluted cross-section: rounded strands with grooves sunk between them.
       const r = TUBE_RADIUS * (1 + FLUTE_DEPTH * Math.cos(FLUTE_COUNT * theta));
       // vertex = C + r·(ct·N + st·B), with B = (0, 0, 1)
       positions.push(cx + r * ct * nx, cy + r * ct * ny, r * st);
@@ -217,12 +235,12 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
 
   return (
     <>
-      {/* Soft studio-ish lighting — a bright key plus gentle fills so the
-          rounded ridges catch light and the valleys fall into soft shadow. */}
-      <ambientLight intensity={0.42} />
-      <directionalLight position={[4, 6, 4]} intensity={1.7} />
-      <directionalLight position={[-5, 1, 2]} intensity={0.6} />
-      <directionalLight position={[0, -3, -3]} intensity={0.35} />
+      {/* Dramatic key + low ambient so the grooves shadow deeply and the
+          twisted strands read at any angle (matches the reference's lighting). */}
+      <ambientLight intensity={0.3} />
+      <directionalLight position={[-3, 4, 5]} intensity={2.3} />
+      <directionalLight position={[5, 2, 2]} intensity={0.45} />
+      <directionalLight position={[1, -4, 1]} intensity={0.25} />
 
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry}>
@@ -232,8 +250,8 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
             ref={materialRef}
             color={color}
             emissive={color}
-            emissiveIntensity={0.06}
-            roughness={0.52}
+            emissiveIntensity={0.05}
+            roughness={0.44}
             metalness={0.0}
             side={THREE.DoubleSide}
           />
