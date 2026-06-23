@@ -1079,6 +1079,8 @@ export function MobiusScene({
 
   return (
     <>
+      {/* Soft studio reflections on the clay. The HDR is fetched at runtime;
+          if it ever fails to load, MobiusErrorBoundary keeps the page intact. */}
       <Environment preset="studio" environmentIntensity={0.4} frames={1} />
       <ambientLight intensity={0.1} />
       <directionalLight position={[5, 5, -2]} intensity={3} />
