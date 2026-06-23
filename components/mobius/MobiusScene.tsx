@@ -26,10 +26,12 @@ const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 // shaped into a leaning "A".
 const PATH_RADIUS = 0.62; // overall scale of the triangle
 const TRI_AMOUNT = 0.1; // deltoid roundness: lower = rounder corners (was 0.2 — pinched at the points)
-const TUBE_RADIUS = 0.24; // radius of the faceted cross-section (chunky — bold facets)
-const RADIAL_SEGMENTS = 6; // 6 big facets — the "bigger ridges" that twist (no tiny flutes)
-const TUBULAR_SEGMENTS = 300; // segments along the loop
-const TWIST_TURNS = 2.0; // bold twist of the big facets — the möbius fold reads clearly
+const TUBE_RADIUS = 0.24; // base radius of the cross-section
+const FLUTE_COUNT = 6; // sculpted ridges around the cross-section
+const FLUTE_DEPTH = 0.28; // how pronounced the rounded ridges are
+const RADIAL_SEGMENTS = 48; // smooth rounded ridges (no flat-shaded banding)
+const TUBULAR_SEGMENTS = 400; // segments along the loop
+const TWIST_TURNS = 2.0; // the ridges spiral this many turns — they flow as it rolls
 
 const BASE_TILT_X = -0.34; // forward lean so the triangle reads like a tilted "A"
 
@@ -90,16 +92,16 @@ function buildMobiusTube(): THREE.BufferGeometry {
     const cy = cys[i];
     const nx = nxs[i];
     const ny = nys[i];
-    // The faceted hexagon is rotated by `twist` (growing with arc length), so it
-    // turns on the tube's own axis as it travels the loop and the 6 big facet
-    // edges spiral — the bold möbius twist (kept crisp by flat-shading).
+    // The sculpted cross-section is rotated by `twist` (growing with arc length),
+    // so its ridges spiral around the loop. As the mesh rolls, the spiral flows.
     const twist = totalTwist * (arc[i] / totalArc);
     for (let k = 0; k <= sides; k++) {
       const theta = (k / sides) * Math.PI * 2 + twist;
       const ct = Math.cos(theta);
       const st = Math.sin(theta);
+      const r = TUBE_RADIUS * (1 + FLUTE_DEPTH * Math.cos(FLUTE_COUNT * theta));
       // vertex = C + r·(ct·N + st·B), with B = (0, 0, 1)
-      positions.push(cx + TUBE_RADIUS * ct * nx, cy + TUBE_RADIUS * ct * ny, TUBE_RADIUS * st);
+      positions.push(cx + r * ct * nx, cy + r * ct * ny, r * st);
     }
   }
 
@@ -227,31 +229,31 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
     group.rotation.x += (tiltX - group.rotation.x) * lerp;
     group.rotation.y += (tiltY - group.rotation.y) * lerp;
 
-    // Gentle sway around the vertical axis — keeps the apex up so the triangle
-    // keeps reading as a leaning "A" while still feeling alive.
-    mesh.rotation.y = reducedMotion ? 0 : Math.sin(state.clock.elapsedTime * 0.45) * 0.26;
+    // Continuous roll around the loop axis — the twisted ridges flow around the
+    // loop (the "rolling" möbius motion from the original).
+    const roll = reducedMotion ? 0.08 : 0.45;
+    mesh.rotation.z += roll * d;
   });
 
   return (
     <>
-      {/* Key + fills so the spiralling facets each catch light distinctly. */}
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[-3, 4, 5]} intensity={1.9} />
-      <directionalLight position={[5, 2, 2]} intensity={0.5} />
-      <directionalLight position={[1, -4, 1]} intensity={0.3} />
+      {/* Soft, balanced studio lighting for a clean matte read (no harsh banding). */}
+      <ambientLight intensity={0.45} />
+      <directionalLight position={[-3, 4, 5]} intensity={1.7} />
+      <directionalLight position={[4, 1, 3]} intensity={0.6} />
+      <directionalLight position={[0, -3, -2]} intensity={0.4} />
 
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry}>
-          {/* flatShading gives the faceted hex read; the facets spiral with the
-              twist. Matte clay. */}
+          {/* Smooth shading — no flat-shaded banding. The sculpted ridges carry
+              the twist, which flows as the mesh rolls. Matte clay. */}
           <meshStandardMaterial
             ref={materialRef}
             color={color}
             emissive={color}
             emissiveIntensity={0.06}
-            roughness={0.55}
+            roughness={0.5}
             metalness={0.0}
-            flatShading
             side={THREE.DoubleSide}
           />
         </mesh>
