@@ -3,10 +3,14 @@
 /**
  * MobiusScene — lean möbius centerpiece.
  *
- * A real möbius strip is generated once on the CPU (no runtime shader, no
- * transmission pass, no post-processing). It anchors itself to the hero band
- * ([data-mobius-anchor="hero"]), rolls slowly, and tilts toward the cursor.
- * Color is driven by the theme and lerps on light/dark flips.
+ * A twisted, fluted triangular tube is baked once into a BufferGeometry. The
+ * "roll" is done the way the original does it: a tiny vertex shader rotates each
+ * cross-section by an animated phase (a rigid rotation about the tube tangent,
+ * so the baked normals just rotate with it and lighting stays correct). The
+ * shape stays put — apex up — while the twist flows around the loop.
+ *
+ * It anchors to the hero band, tilts toward the cursor, and flips color with
+ * the theme. No transmission, no post-processing, no per-frame CPU rebuild.
  */
 
 import { useMemo, useRef, useEffect } from 'react';
@@ -21,38 +25,41 @@ type Props = {
 
 const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 
-// Faceted, twisted, *triangular* tube — a 6-sided cross-section swept along a
-// rounded-triangle path (apex up) while spinning, so it reads as a twisted rope
-// shaped into a leaning "A".
-const PATH_RADIUS = 0.62; // overall scale of the triangle
-const TRI_AMOUNT = 0.1; // deltoid roundness: lower = rounder corners (was 0.2 — pinched at the points)
-const TUBE_RADIUS = 0.24; // base radius of the cross-section
+// Twisted, fluted triangular tube. The flutes add radius outward, so the path
+// corners must stay rounder than the flute's outer radius or the tube pinches.
+const PATH_RADIUS = 0.7; // overall scale of the triangle
+const TRI_AMOUNT = 0.1; // deltoid roundness: lower = rounder corners (avoids pinching)
+const TUBE_RADIUS = 0.22; // base radius of the cross-section
 const FLUTE_COUNT = 6; // sculpted ridges around the cross-section
-const FLUTE_DEPTH = 0.28; // how pronounced the rounded ridges are
+const FLUTE_DEPTH = 0.24; // how pronounced the rounded ridges are
 const RADIAL_SEGMENTS = 48; // smooth rounded ridges (no flat-shaded banding)
-const TUBULAR_SEGMENTS = 400; // segments along the loop
-const TWIST_TURNS = 2.0; // the ridges spiral this many turns — they flow as it rolls
+const TUBULAR_SEGMENTS = 420; // segments along the loop
+const TWIST_TURNS = 2.0; // the ridges spiral this many turns; the phase flows them around
 
 const BASE_TILT_X = -0.34; // forward lean so the triangle reads like a tilted "A"
+const ROLL_SPEED = 0.5; // radians/sec the cross-section phase advances (the "roll")
 
 /**
- * Faceted, twisted triangular tube baked into a BufferGeometry.
+ * Twisted, fluted triangular tube baked into a BufferGeometry.
  *
- * The path is a rounded triangle in polar form r(u) = R·(1 − a·sin 3u), which
- * puts a vertex at the top (apex up). A regular hexagon cross-section is swept
- * along it while rotating TWIST_TURNS times; n.5 turns is an odd number of
- * half-twists, so the surface stays one-sided (möbius) and — being a multiple
- * of 60° at the seam — closes cleanly.
+ * Path: rounded triangle (deltoid), apex up. A fluted cross-section is swept
+ * along it, rotating TWIST_TURNS times (distributed by arc length for an even
+ * spiral). Per-vertex `aCenter` (ring center) and `aAxis` (tube tangent) are
+ * stored so the shader can rotate each cross-section in place for the roll.
  */
 function buildMobiusTube(): THREE.BufferGeometry {
   const positions: number[] = [];
+  const center: number[] = [];
+  const axis: number[] = [];
   const indices: number[] = [];
   const sides = RADIAL_SEGMENTS;
   const rings = TUBULAR_SEGMENTS;
 
-  // ── Pass 1: sample the path, its planar frame, and cumulative arc length ──
+  // ── Pass 1: sample the path, its planar frame, the tangent, and arc length ──
   const cxs = new Float64Array(rings + 1);
   const cys = new Float64Array(rings + 1);
+  const txs = new Float64Array(rings + 1);
+  const tys = new Float64Array(rings + 1);
   const nxs = new Float64Array(rings + 1);
   const nys = new Float64Array(rings + 1);
   const arc = new Float64Array(rings + 1);
@@ -63,9 +70,7 @@ function buildMobiusTube(): THREE.BufferGeometry {
     const sin2U = 2 * sinU * cosU;
     const cos2U = 1 - 2 * sinU * sinU;
 
-    // Rounded equilateral-triangle path (deltoid form), apex toward +y:
-    //   C(u) = R · ( −sin u + b·sin 2u ,  cos u + b·cos 2u )
-    // Straight-ish sides with rounded corners — reads as a triangle, not a clover.
+    // Rounded equilateral-triangle path (deltoid form), apex toward +y.
     const cx = PATH_RADIUS * (-sinU + TRI_AMOUNT * sin2U);
     const cy = PATH_RADIUS * (cosU + TRI_AMOUNT * cos2U);
 
@@ -78,6 +83,8 @@ function buildMobiusTube(): THREE.BufferGeometry {
 
     cxs[i] = cx;
     cys[i] = cy;
+    txs[i] = tx;
+    tys[i] = ty;
     nxs[i] = ty;
     nys[i] = -tx;
     arc[i] = i > 0 ? arc[i - 1] + Math.hypot(cx - cxs[i - 1], cy - cys[i - 1]) : 0;
@@ -85,15 +92,12 @@ function buildMobiusTube(): THREE.BufferGeometry {
   const totalArc = arc[rings] || 1;
   const totalTwist = TWIST_TURNS * Math.PI * 2;
 
-  // ── Pass 2: sweep the fluted cross-section, twisting by ARC LENGTH so the
-  //    spiral is tight and even all the way around (not bunched at the corners) ──
+  // ── Pass 2: sweep the fluted cross-section, twisting by arc length ──
   for (let i = 0; i <= rings; i++) {
     const cx = cxs[i];
     const cy = cys[i];
     const nx = nxs[i];
     const ny = nys[i];
-    // The sculpted cross-section is rotated by `twist` (growing with arc length),
-    // so its ridges spiral around the loop. As the mesh rolls, the spiral flows.
     const twist = totalTwist * (arc[i] / totalArc);
     for (let k = 0; k <= sides; k++) {
       const theta = (k / sides) * Math.PI * 2 + twist;
@@ -102,6 +106,8 @@ function buildMobiusTube(): THREE.BufferGeometry {
       const r = TUBE_RADIUS * (1 + FLUTE_DEPTH * Math.cos(FLUTE_COUNT * theta));
       // vertex = C + r·(ct·N + st·B), with B = (0, 0, 1)
       positions.push(cx + r * ct * nx, cy + r * ct * ny, r * st);
+      center.push(cx, cy);
+      axis.push(txs[i], tys[i]);
     }
   }
 
@@ -119,24 +125,71 @@ function buildMobiusTube(): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
   geometry.setIndex(indices);
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('aCenter', new THREE.Float32BufferAttribute(center, 2));
+  geometry.setAttribute('aAxis', new THREE.Float32BufferAttribute(axis, 2));
   geometry.computeVertexNormals();
   return geometry;
 }
 
 export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
   const groupRef = useRef<THREE.Group>(null);
-  const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
 
   const geometry = useMemo(buildMobiusTube, []);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
-  // Rotation-invariant diameter for the auto-fit (the shape spins, so fit the
-  // bounding sphere into the hero band — it never overflows at any angle).
+  // Rotation-invariant diameter for the auto-fit.
   const outerDiameter = useMemo(() => {
     geometry.computeBoundingSphere();
     return (geometry.boundingSphere?.radius ?? 1) * 2;
   }, [geometry]);
+
+  // The roll uniform — mutated each frame; shared with the compiled shader.
+  const phase = useRef({ value: 0 });
+
+  // Material with the in-place "roll" shader: rotate each cross-section about the
+  // tube tangent by uPhase. Because it's a rigid rotation, the baked normal just
+  // rotates with it, so lighting stays correct.
+  const material = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(color),
+      emissive: new THREE.Color(color),
+      emissiveIntensity: 0.06,
+      roughness: 0.5,
+      metalness: 0,
+      side: THREE.DoubleSide,
+    });
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uPhase = phase.current;
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          uniform float uPhase;
+          attribute vec2 aCenter;
+          attribute vec2 aAxis;
+          vec3 mobiusRoll(vec3 v, vec3 ax, float ang) {
+            float c = cos(ang); float s = sin(ang);
+            return v * c + cross(ax, v) * s + ax * dot(ax, v) * (1.0 - c);
+          }`,
+        )
+        .replace(
+          '#include <beginnormal_vertex>',
+          `vec3 mAxis = normalize(vec3(aAxis, 0.0));
+          vec3 objectNormal = mobiusRoll(normal, mAxis, uPhase);
+          #ifdef USE_TANGENT
+            vec3 objectTangent = vec3( tangent.xyz );
+          #endif`,
+        )
+        .replace(
+          '#include <begin_vertex>',
+          `vec3 mCenter = vec3(aCenter, 0.0);
+          vec3 transformed = mCenter + mobiusRoll(position - mCenter, normalize(vec3(aAxis, 0.0)), uPhase);`,
+        );
+    };
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => () => material.dispose(), [material]);
 
   // Color lerp targets.
   const currentColor = useRef(new THREE.Color(color));
@@ -155,9 +208,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
 
   useFrame((state, delta) => {
     const group = groupRef.current;
-    const mesh = meshRef.current;
-    const material = materialRef.current;
-    if (!group || !mesh) return;
+    if (!group) return;
 
     const d = Math.min(delta, 0.033);
     const camera = state.camera as THREE.PerspectiveCamera;
@@ -165,11 +216,12 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
     const vh = Math.max(state.size.height, 1);
 
     // ── Color ────────────────────────────────────────────────────────────
-    if (material) {
-      currentColor.current.lerp(targetColor.current, 1 - Math.exp(-d / 0.2));
-      material.color.copy(currentColor.current);
-      material.emissive.copy(currentColor.current);
-    }
+    currentColor.current.lerp(targetColor.current, 1 - Math.exp(-d / 0.2));
+    material.color.copy(currentColor.current);
+    material.emissive.copy(currentColor.current);
+
+    // ── Roll: advance the cross-section phase (the surface flows in place) ──
+    phase.current.value += (reducedMotion ? ROLL_SPEED * 0.3 : ROLL_SPEED) * d;
 
     // ── Entrance (scale + grow over ~0.7s) ───────────────────────────────
     if (entranceStartRef.current === null) entranceStartRef.current = state.clock.elapsedTime;
@@ -223,16 +275,11 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
     group.scale.y += (scaleTarget - group.scale.y) * lerp;
     group.scale.z += (scaleTarget - group.scale.z) * lerp;
 
-    // Tilt toward the cursor (parallax depth).
+    // Tilt toward the cursor (parallax depth) — the shape stays apex-up.
     const tiltX = BASE_TILT_X + -my * 0.16;
     const tiltY = mx * 0.3;
     group.rotation.x += (tiltX - group.rotation.x) * lerp;
     group.rotation.y += (tiltY - group.rotation.y) * lerp;
-
-    // Continuous roll around the loop axis — the twisted ridges flow around the
-    // loop (the "rolling" möbius motion from the original).
-    const roll = reducedMotion ? 0.08 : 0.45;
-    mesh.rotation.z += roll * d;
   });
 
   return (
@@ -244,19 +291,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
       <directionalLight position={[0, -3, -2]} intensity={0.4} />
 
       <group ref={groupRef} scale={0}>
-        <mesh ref={meshRef} geometry={geometry}>
-          {/* Smooth shading — no flat-shaded banding. The sculpted ridges carry
-              the twist, which flows as the mesh rolls. Matte clay. */}
-          <meshStandardMaterial
-            ref={materialRef}
-            color={color}
-            emissive={color}
-            emissiveIntensity={0.06}
-            roughness={0.5}
-            metalness={0.0}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
+        <mesh geometry={geometry} material={material} />
       </group>
     </>
   );
