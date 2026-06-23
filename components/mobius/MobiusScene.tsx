@@ -24,16 +24,16 @@ const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 // Faceted, twisted, *triangular* tube — a 6-sided cross-section swept along a
 // rounded-triangle path (apex up) while spinning, so it reads as a twisted rope
 // shaped into a leaning "A".
-const PATH_RADIUS = 0.66; // base radius of the loop
-const TRI_AMOUNT = 0.26; // 0 = circle; higher = more triangular (apex up)
-const TUBE_RADIUS = 0.24; // base radius of the cross-section (skinny)
-const FLUTE_COUNT = 6; // rounded ridges running around the tube
-const FLUTE_DEPTH = 0.32; // how deep the valleys sink between the ridges
-const RADIAL_SEGMENTS = 96; // smooth rounded ridges (a multiple of FLUTE_COUNT)
-const TUBULAR_SEGMENTS = 360; // segments around the loop
-const TWIST_TURNS = 3.5; // rope twist; even FLUTE_COUNT × n.5 turns closes seamlessly + stays one-sided
+const PATH_RADIUS = 0.6; // overall scale of the triangle
+const TRI_AMOUNT = 0.2; // deltoid roundness: 0 = circle, ~0.3 = sharper triangular corners
+const TUBE_RADIUS = 0.2; // base radius of the cross-section (skinny — avoids pinching at corners)
+const FLUTE_COUNT = 5; // rounded ridges running along the tube (fewer => twist is trackable)
+const FLUTE_DEPTH = 0.22; // how deep the valleys sink between the ridges
+const RADIAL_SEGMENTS = 100; // smooth rounded ridges (a multiple of FLUTE_COUNT)
+const TUBULAR_SEGMENTS = 400; // segments along the loop (resolves the twist smoothly)
+const TWIST_TURNS = 2; // full end-to-end twists; integer × FLUTE_COUNT closes the seam
 
-const BASE_TILT_X = -0.3; // gentle forward lean so the triangle reads like a tilted "A"
+const BASE_TILT_X = -0.34; // forward lean so the triangle reads like a tilted "A"
 
 /**
  * Faceted, twisted triangular tube baked into a BufferGeometry.
@@ -52,19 +52,21 @@ function buildMobiusTube(): THREE.BufferGeometry {
 
   for (let i = 0; i <= rings; i++) {
     const u = (i / rings) * Math.PI * 2;
-    const cosU = Math.cos(u);
     const sinU = Math.sin(u);
+    const cosU = Math.cos(u);
+    const sin2U = 2 * sinU * cosU;
+    const cos2U = 1 - 2 * sinU * sinU;
 
-    // Rounded-triangle path (apex toward +y) and its center point.
-    const radius = PATH_RADIUS * (1 - TRI_AMOUNT * Math.sin(3 * u));
-    const cx = radius * cosU;
-    const cy = radius * sinU;
+    // Rounded equilateral-triangle path (deltoid form), apex toward +y:
+    //   C(u) = R · ( −sin u + b·sin 2u ,  cos u + b·cos 2u )
+    // Straight-ish sides with rounded corners — reads as a triangle, not a clover.
+    const cx = PATH_RADIUS * (-sinU + TRI_AMOUNT * sin2U);
+    const cy = PATH_RADIUS * (cosU + TRI_AMOUNT * cos2U);
 
-    // Proper planar frame: tangent T = dC/du, in-plane normal N = T rotated 90°,
-    // out-of-plane binormal B = z. Keeps the tube perpendicular along the curve.
-    const dr = -PATH_RADIUS * TRI_AMOUNT * 3 * Math.cos(3 * u);
-    let tx = dr * cosU - radius * sinU;
-    let ty = dr * sinU + radius * cosU;
+    // Planar frame: tangent T = dC/du, in-plane normal N = T rotated −90°,
+    // binormal B = z. Keeps the tube perpendicular along the curve.
+    let tx = PATH_RADIUS * (-cosU + 2 * TRI_AMOUNT * cos2U);
+    let ty = PATH_RADIUS * (-sinU - 2 * TRI_AMOUNT * sin2U);
     const tl = Math.hypot(tx, ty) || 1;
     tx /= tl;
     ty /= tl;
