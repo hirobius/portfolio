@@ -21,21 +21,28 @@ type Props = {
 
 const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 
-// Faceted möbius-tube geometry — a 6-sided (hexagonal) cross-section swept
-// along a circular path with a half-twist. This gives the chunky clay volume
-// of the original (radialSegments 6, tubeRadius 0.325, pathRadius 0.67).
-const PATH_RADIUS = 0.67; // radius of the loop
-const TUBE_RADIUS = 0.325; // radius of the hexagonal cross-section
-const RADIAL_SEGMENTS = 6; // 6-sided faceted tube
-const TUBULAR_SEGMENTS = 300; // segments around the loop
-const OUTER_DIAMETER = 2 * (PATH_RADIUS + TUBE_RADIUS);
+// Faceted, twisted, *triangular* tube — a 6-sided cross-section swept along a
+// rounded-triangle path (apex up) while spinning, so it reads as a twisted rope
+// shaped into a leaning "A".
+const PATH_RADIUS = 0.66; // base radius of the loop
+const TRI_AMOUNT = 0.26; // 0 = circle; higher = more triangular (apex up)
+const TUBE_RADIUS = 0.24; // base radius of the cross-section (skinny)
+const FLUTE_COUNT = 6; // rounded ridges running around the tube
+const FLUTE_DEPTH = 0.32; // how deep the valleys sink between the ridges
+const RADIAL_SEGMENTS = 96; // smooth rounded ridges (a multiple of FLUTE_COUNT)
+const TUBULAR_SEGMENTS = 360; // segments around the loop
+const TWIST_TURNS = 3.5; // rope twist; even FLUTE_COUNT × n.5 turns closes seamlessly + stays one-sided
 
-const BASE_TILT_X = -0.62; // look down into the loop for a 3/4 view
+const BASE_TILT_X = -0.3; // gentle forward lean so the triangle reads like a tilted "A"
 
 /**
- * Faceted möbius tube baked into a BufferGeometry. A regular hexagon is swept
- * around the loop while rotating a half-turn (π) — a hexagon is symmetric under
- * 180°, so the surface closes seamlessly into a proper one-sided möbius tube.
+ * Faceted, twisted triangular tube baked into a BufferGeometry.
+ *
+ * The path is a rounded triangle in polar form r(u) = R·(1 − a·sin 3u), which
+ * puts a vertex at the top (apex up). A regular hexagon cross-section is swept
+ * along it while rotating TWIST_TURNS times; n.5 turns is an odd number of
+ * half-twists, so the surface stays one-sided (möbius) and — being a multiple
+ * of 60° at the seam — closes cleanly.
  */
 function buildMobiusTube(): THREE.BufferGeometry {
   const positions: number[] = [];
@@ -47,22 +54,33 @@ function buildMobiusTube(): THREE.BufferGeometry {
     const u = (i / rings) * Math.PI * 2;
     const cosU = Math.cos(u);
     const sinU = Math.sin(u);
-    // Cross-section center on the path, and an orthonormal frame for its plane:
-    // N = radial (in-plane), B = z-up. Both are perpendicular to the tangent.
-    const cx = PATH_RADIUS * cosU;
-    const cy = PATH_RADIUS * sinU;
-    const twist = u * 0.5; // half-twist over one loop => möbius
 
+    // Rounded-triangle path (apex toward +y) and its center point.
+    const radius = PATH_RADIUS * (1 - TRI_AMOUNT * Math.sin(3 * u));
+    const cx = radius * cosU;
+    const cy = radius * sinU;
+
+    // Proper planar frame: tangent T = dC/du, in-plane normal N = T rotated 90°,
+    // out-of-plane binormal B = z. Keeps the tube perpendicular along the curve.
+    const dr = -PATH_RADIUS * TRI_AMOUNT * 3 * Math.cos(3 * u);
+    let tx = dr * cosU - radius * sinU;
+    let ty = dr * sinU + radius * cosU;
+    const tl = Math.hypot(tx, ty) || 1;
+    tx /= tl;
+    ty /= tl;
+    const nx = ty;
+    const ny = -tx;
+
+    const twist = u * TWIST_TURNS;
     for (let k = 0; k <= sides; k++) {
       const theta = (k / sides) * Math.PI * 2 + twist;
       const ct = Math.cos(theta);
       const st = Math.sin(theta);
-      // vertex = C + r*(ct*N + st*B), with N = (cosU, sinU, 0), B = (0, 0, 1)
-      positions.push(
-        cx + TUBE_RADIUS * ct * cosU,
-        cy + TUBE_RADIUS * ct * sinU,
-        TUBE_RADIUS * st,
-      );
+      // Fluted cross-section: rounded ridges with sunken valleys between them.
+      // The flutes follow the twist, so the ridges spiral along the tube.
+      const r = TUBE_RADIUS * (1 + FLUTE_DEPTH * Math.cos(FLUTE_COUNT * theta));
+      // vertex = C + r·(ct·N + st·B), with B = (0, 0, 1)
+      positions.push(cx + r * ct * nx, cy + r * ct * ny, r * st);
     }
   }
 
@@ -91,6 +109,13 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
 
   const geometry = useMemo(buildMobiusTube, []);
   useEffect(() => () => geometry.dispose(), [geometry]);
+
+  // Rotation-invariant diameter for the auto-fit (the shape spins, so fit the
+  // bounding sphere into the hero band — it never overflows at any angle).
+  const outerDiameter = useMemo(() => {
+    geometry.computeBoundingSphere();
+    return (geometry.boundingSphere?.radius ?? 1) * 2;
+  }, [geometry]);
 
   // Color lerp targets.
   const currentColor = useRef(new THREE.Color(color));
@@ -157,9 +182,9 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
       targetY = camera.position.y + scratchDir.current.y * t;
 
       const bandWorldHeight = (rect.height / vh) * visibleHeight;
-      fitScale = (bandWorldHeight * 0.9) / OUTER_DIAMETER;
+      fitScale = (bandWorldHeight * 0.95) / outerDiameter;
     }
-    fitScale = Math.max(0.18, Math.min(fitScale, 0.85));
+    fitScale = Math.max(0.15, Math.min(fitScale, 1.1));
 
     const mx = reducedMotion ? 0 : mouseRef.current.x;
     const my = reducedMotion ? 0 : mouseRef.current.y;
@@ -183,29 +208,31 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
     group.rotation.x += (tiltX - group.rotation.x) * lerp;
     group.rotation.y += (tiltY - group.rotation.y) * lerp;
 
-    // Continuous slow roll — the möbius twist travels around the loop.
-    const roll = reducedMotion ? 0.05 : 0.5;
-    mesh.rotation.z += roll * d;
+    // Gentle sway around the vertical axis — keeps the apex up so the triangle
+    // keeps reading as a leaning "A" while still feeling alive.
+    mesh.rotation.y = reducedMotion ? 0 : Math.sin(state.clock.elapsedTime * 0.45) * 0.26;
   });
 
   return (
     <>
-      {/* Matte clay lighting — no env map, renders on every GPU. */}
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[4, 5, 3]} intensity={1.5} />
-      <directionalLight position={[-5, 1, 2]} intensity={0.55} />
-      <directionalLight position={[0, -2, -4]} intensity={0.5} />
+      {/* Soft studio-ish lighting — a bright key plus gentle fills so the
+          rounded ridges catch light and the valleys fall into soft shadow. */}
+      <ambientLight intensity={0.42} />
+      <directionalLight position={[4, 6, 4]} intensity={1.7} />
+      <directionalLight position={[-5, 1, 2]} intensity={0.6} />
+      <directionalLight position={[0, -3, -3]} intensity={0.35} />
 
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry}>
+          {/* Smooth shading (no flatShading) so the ridges read as rounded and
+              the valleys as sunken. Low emissive keeps the valleys deep. */}
           <meshStandardMaterial
             ref={materialRef}
             color={color}
             emissive={color}
-            emissiveIntensity={0.12}
-            roughness={0.7}
+            emissiveIntensity={0.06}
+            roughness={0.52}
             metalness={0.0}
-            flatShading
             side={THREE.DoubleSide}
           />
         </mesh>

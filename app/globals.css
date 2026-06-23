@@ -49,7 +49,7 @@ svg {
   --line-strong: rgba(26, 23, 20, 0.28);
 
   /* möbius reads these — flips with the theme */
-  --mobius-color: #1a1714;
+  --mobius-color: #3a4fe6;
   --mobius-bg: #eee8df;
 
   --font-display: var(--font-display, Georgia, 'Times New Roman', serif);
@@ -69,7 +69,7 @@ svg {
   --line: rgba(241, 235, 225, 0.14);
   --line-strong: rgba(241, 235, 225, 0.3);
 
-  --mobius-color: #f1ebe1;
+  --mobius-color: #4f66f5;
   --mobius-bg: #14120f;
 
   color-scheme: dark;
