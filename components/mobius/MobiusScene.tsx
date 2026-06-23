@@ -26,12 +26,10 @@ const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 // shaped into a leaning "A".
 const PATH_RADIUS = 0.6; // overall scale of the triangle
 const TRI_AMOUNT = 0.2; // deltoid roundness: 0 = circle, ~0.3 = sharper triangular corners
-const TUBE_RADIUS = 0.2; // base radius of the cross-section (skinny — avoids pinching at corners)
-const FLUTE_COUNT = 6; // rope strands running along the tube
-const FLUTE_DEPTH = 0.42; // how deep the grooves sink between the strands
-const RADIAL_SEGMENTS = 96; // smooth rounded strands (a multiple of FLUTE_COUNT)
-const TUBULAR_SEGMENTS = 480; // dense enough to resolve the tight twist smoothly
-const TWIST_TURNS = 5; // tight rope twist (applied per arc-length for an even spiral)
+const TUBE_RADIUS = 0.24; // radius of the faceted cross-section
+const RADIAL_SEGMENTS = 6; // 6-sided faceted cross-section (the "hex" tube)
+const TUBULAR_SEGMENTS = 300; // segments along the loop
+const TWIST_TURNS = 3.5; // the cross-section rotates this many turns along the path (möbius-style twist)
 
 const BASE_TILT_X = -0.34; // forward lean so the triangle reads like a tilted "A"
 
@@ -92,15 +90,16 @@ function buildMobiusTube(): THREE.BufferGeometry {
     const cy = cys[i];
     const nx = nxs[i];
     const ny = nys[i];
+    // The cross-section is rotated by `twist` (which grows with arc length), so
+    // the faceted hexagon turns on the tube's own axis as it travels the loop —
+    // the facet edges spiral. That rotation IS the möbius-style twist.
     const twist = totalTwist * (arc[i] / totalArc);
     for (let k = 0; k <= sides; k++) {
       const theta = (k / sides) * Math.PI * 2 + twist;
       const ct = Math.cos(theta);
       const st = Math.sin(theta);
-      // Fluted cross-section: rounded strands with grooves sunk between them.
-      const r = TUBE_RADIUS * (1 + FLUTE_DEPTH * Math.cos(FLUTE_COUNT * theta));
       // vertex = C + r·(ct·N + st·B), with B = (0, 0, 1)
-      positions.push(cx + r * ct * nx, cy + r * ct * ny, r * st);
+      positions.push(cx + TUBE_RADIUS * ct * nx, cy + TUBE_RADIUS * ct * ny, TUBE_RADIUS * st);
     }
   }
 
@@ -235,24 +234,24 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
 
   return (
     <>
-      {/* Dramatic key + low ambient so the grooves shadow deeply and the
-          twisted strands read at any angle (matches the reference's lighting). */}
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[-3, 4, 5]} intensity={2.3} />
-      <directionalLight position={[5, 2, 2]} intensity={0.45} />
-      <directionalLight position={[1, -4, 1]} intensity={0.25} />
+      {/* Key + fills so the spiralling facets each catch light distinctly. */}
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[-3, 4, 5]} intensity={1.9} />
+      <directionalLight position={[5, 2, 2]} intensity={0.5} />
+      <directionalLight position={[1, -4, 1]} intensity={0.3} />
 
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry}>
-          {/* Smooth shading (no flatShading) so the ridges read as rounded and
-              the valleys as sunken. Low emissive keeps the valleys deep. */}
+          {/* flatShading gives the faceted hex read; the facets spiral with the
+              twist. Matte clay. */}
           <meshStandardMaterial
             ref={materialRef}
             color={color}
             emissive={color}
-            emissiveIntensity={0.05}
-            roughness={0.44}
+            emissiveIntensity={0.06}
+            roughness={0.55}
             metalness={0.0}
+            flatShading
             side={THREE.DoubleSide}
           />
         </mesh>
