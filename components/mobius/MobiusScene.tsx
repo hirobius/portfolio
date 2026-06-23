@@ -1,1122 +1,196 @@
+'use client';
+
 /**
- * MobiusScene – R3F scene internals for the Möbius logo.
+ * MobiusScene — lean möbius centerpiece.
  *
- * Rendered inside the Mobius Canvas. Reads all visual parameters from
- * useMobiusStore.
- *
- * Möbius twist is applied entirely in the vertex shader via Rodrigues rotation
- * around the path tangent at each cross-section. This makes uTwistCount and
- * uTwistAmount smoothly animatable without geometry rebuild.
- *
- * Ported from the original design-system component: the unused full-screen
- * DistortionLens and the Fluid post-processing pass have been removed, and the
- * design-token reads replaced with a neutral base color.
+ * A real möbius strip is generated once on the CPU (no runtime shader, no
+ * transmission pass, no post-processing). It anchors itself to the hero band
+ * ([data-mobius-anchor="hero"]), rolls slowly, and tilts toward the cursor.
+ * Color is driven by the theme and lerps on light/dark flips.
  */
 
-import { useRef, useMemo, useEffect, useCallback, useState } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Environment } from '@react-three/drei';
-import { EffectComposer, Bloom, Noise, Vignette } from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
-import { mergeVertices, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { MobiusCurve } from './mobiusCurve';
-import { useMobiusStore } from './mobiusStore';
-import { MOBIUS_BASE_COLOR } from './tokens';
-import type { MutableRefObject } from 'react';
-import type { PerformanceTier } from './mobiusStore';
 
-// ── Prop types ──────────────────────────────────────────────────────────────
+type Props = {
+  mouseRef: React.MutableRefObject<{ x: number; y: number }>;
+  color: string;
+  reducedMotion: boolean;
+};
 
-type MouseRef = MutableRefObject<{ x: number; y: number }>;
-type LerpDurationRef = MutableRefObject<number>;
-type DragStateRef = MutableRefObject<{ active: boolean; targetX: number; targetY: number }>;
-type InteractionBoundsRef = MutableRefObject<{ x: number; y: number; size: number; visible: boolean }>;
+const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 
-const VIEWPORT_HEIGHT_BASELINE = 900;
+// Möbius strip geometry parameters.
+const LOOP_RADIUS = 1;
+const BAND_WIDTH = 0.62;
+const U_SEGMENTS = 240; // around the loop
+const V_SEGMENTS = 14; // across the band
+const OUTER_DIAMETER = 2 * (LOOP_RADIUS + BAND_WIDTH / 2);
 
-// ── Möbius Mesh ─────────────────────────────────────────────────────────────
+const BASE_TILT_X = -0.62; // look down into the loop for a 3/4 view
 
-function MobiusMesh({
-  mouseRef,
-  lerpDurationRef,
-  routeTransitionDecay,
-  dragStateRef,
-  interactionBoundsRef,
-  navScaleMultiplier,
-  isCoarsePointer,
-  performanceTier,
-}: {
-  mouseRef: MouseRef;
-  lerpDurationRef: LerpDurationRef;
-  routeTransitionDecay: number;
-  dragStateRef: DragStateRef;
-  interactionBoundsRef: InteractionBoundsRef;
-  navScaleMultiplier: number;
-  isCoarsePointer: boolean;
-  performanceTier: 'high' | 'medium' | 'low';
-}) {
+/** Classic parametric möbius strip baked into a BufferGeometry. */
+function buildMobiusStrip(): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const indices: number[] = [];
+
+  for (let i = 0; i <= U_SEGMENTS; i++) {
+    const u = (i / U_SEGMENTS) * Math.PI * 2;
+    const cosU = Math.cos(u);
+    const sinU = Math.sin(u);
+    const cosHalf = Math.cos(u / 2);
+    const sinHalf = Math.sin(u / 2);
+    for (let j = 0; j <= V_SEGMENTS; j++) {
+      const v = (j / V_SEGMENTS - 0.5) * BAND_WIDTH;
+      const radial = LOOP_RADIUS + v * cosHalf;
+      positions.push(radial * cosU, radial * sinU, v * sinHalf);
+    }
+  }
+
+  const row = V_SEGMENTS + 1;
+  for (let i = 0; i < U_SEGMENTS; i++) {
+    for (let j = 0; j < V_SEGMENTS; j++) {
+      const a = i * row + j;
+      const b = a + row;
+      const c = a + 1;
+      const d = b + 1;
+      indices.push(a, b, d, a, d, c);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setIndex(indices);
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
   const groupRef = useRef<THREE.Group>(null);
-  const meshGroupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.MeshPhysicalMaterial>(null);
-  const shaderRef = useRef<THREE.WebGLProgramParametersWithUniforms | null>(null);
-  const currentColorRef = useRef(new THREE.Color(MOBIUS_BASE_COLOR));
-  const targetColorRef = useRef(new THREE.Color(MOBIUS_BASE_COLOR));
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
 
-  const tubeRadius = useMobiusStore((s) => s.tubeRadius);
-  const pathRadius = useMobiusStore((s) => s.pathRadius);
-  const tubularSegments = useMobiusStore((s) => s.tubularSegments);
-  const radialSegments = useMobiusStore((s) => s.radialSegments);
-  const wireframe = useMobiusStore((s) => s.wireframe);
-  const transmission = useMobiusStore((s) => s.transmission);
-  const roughness = useMobiusStore((s) => s.roughness);
-  const thickness = useMobiusStore((s) => s.thickness);
-  const metalness = useMobiusStore((s) => s.metalness);
-  const emissiveIntensity = useMobiusStore((s) => s.emissiveIntensity);
-  const color = useMobiusStore((s) => s.color);
-  const rotationSpeed = useMobiusStore((s) => s.rotationSpeed);
-  const magneticLag = useMobiusStore((s) => s.magneticLag);
-  const scale = useMobiusStore((s) => s.scale);
-  const mouseInfluence = useMobiusStore((s) => s.mouseInfluence);
-  const layoutAnchorSelector = useMobiusStore((s) => s.layoutAnchorSelector);
-  const layoutPositionX = useMobiusStore((s) => s.layoutPositionX);
-  const layoutPositionY = useMobiusStore((s) => s.layoutPositionY);
-  const layoutPositionZ = useMobiusStore((s) => s.layoutPositionZ);
-  const layoutRotationX = useMobiusStore((s) => s.layoutRotationX);
-  const layoutRotationY = useMobiusStore((s) => s.layoutRotationY);
-  const layoutRotationZ = useMobiusStore((s) => s.layoutRotationZ);
-  const layoutScale = useMobiusStore((s) => s.layoutScale);
-  const activePreset = useMobiusStore((s) => s.activePreset);
-  const reducedMotion = useMobiusStore((s) => s.reducedMotion);
-  const navScrollProgress = useMobiusStore((s) => s.navScrollProgress);
-  const navAcrylicHovered = useMobiusStore((s) => s.navAcrylicHovered);
-  const anchorDisplayRef = useRef({ x: layoutPositionX, y: layoutPositionY });
-  const scrollImpulseRef = useRef(0);
-  const scrollLiftRef = useRef(0);
-  const scratchVec = useRef(new THREE.Vector3());
-  const scratchVec2 = useRef(new THREE.Vector3());
-  const scratchVec3 = useRef(new THREE.Vector3());
-  const scratchVec4 = useRef(new THREE.Vector3());
-  const scratchVec5 = useRef(new THREE.Vector3());
-  const scratchQuat = useRef(new THREE.Quaternion());
-  const scratchMat4 = useRef(new THREE.Matrix4());
-  const dragOffsetRef = useRef(new THREE.Vector2());
-  const dragMouseVectorRef = useRef(new THREE.Vector2());
-  const dragTargetWorldRef = useRef(new THREE.Vector3());
-  const dragDirectionWorldRef = useRef(new THREE.Vector3(1, 0, 0));
-  const anchorWorldRef = useRef(new THREE.Vector3());
-  const pointerWorldRef = useRef(new THREE.Vector3());
-  const previousPointerWorldRef = useRef(new THREE.Vector3());
-  const pointerVelocityRef = useRef(new THREE.Vector3());
-  const pointerVelocityScratchRef = useRef(new THREE.Vector3());
-  const mouseScreenRef = useRef(new THREE.Vector2(0.5, 0.5));
-  const previousMouseScreenRef = useRef(new THREE.Vector2(0.5, 0.5));
-  const mouseVelocity2DRef = useRef(new THREE.Vector2());
-  const mouseVelocity2DScratchRef = useRef(new THREE.Vector2());
-  const anchorElementRef = useRef<HTMLElement | null>(null);
-  const hoverProximityRef = useRef(0);
-  const navHoverProgressRef = useRef(0);
-  const gooPointerRef = useRef(new THREE.Vector3());
-  const wasDraggingRef = useRef(false);
-  const releaseStrengthRef = useRef(0);
-  const snapOffsetRef = useRef({ x: 0, y: 0 });
-  const snapTargetOffsetRef = useRef({ x: 0, y: 0 });
-  const snapPhaseRef = useRef<'idle' | 'return'>('idle');
-  const navAnchorPrimedRef = useRef(false);
-  const initialDropStartRef = useRef<number | null>(null);
-  const initialDropWarmupFramesRef = useRef(0);
-  const anchorPlaneRef = useRef(new THREE.Plane());
-  const centerPlaneRef = useRef(new THREE.Plane());
-  const pointerPlaneRef = useRef(new THREE.Plane());
-  const anchorRaycasterRef = useRef(new THREE.Raycaster());
-  const originRaycasterRef = useRef(new THREE.Raycaster());
-  const visualRaycasterRef = useRef(new THREE.Raycaster());
-  const pointerRaycasterRef = useRef(new THREE.Raycaster());
-  const anchorNdcRef = useRef(new THREE.Vector2());
-  const originNdcRef = useRef(new THREE.Vector2());
-  const visualNdcRef = useRef(new THREE.Vector2());
-  const pointerNdcRef = useRef(new THREE.Vector2());
-  const lowTierInteractionFrameRef = useRef(0);
-  const cachedScreenStateRef = useRef({
-    screenX: 0,
-    screenY: 0,
-    screenLocalX: 0,
-    screenLocalY: 0,
-    projectedRadius: 0,
-  });
-  const cachedVisualOffsetRef = useRef({ x: 0, y: 0 });
-  const cachedHoverProximityRef = useRef(0);
+  const geometry = useMemo(buildMobiusStrip, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
-  // Initial transform is captured once on mount; live layout is driven each
-  // frame in useFrame, so these intentionally have an empty dependency array.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const initialPosition = useMemo(() => new THREE.Vector3(layoutPositionX, layoutPositionY, layoutPositionZ), []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const initialRotation = useMemo(() => new THREE.Euler(layoutRotationX, layoutRotationY, layoutRotationZ), []);
-  const initialScale = useMemo(() => new THREE.Vector3(0, 0, 0), []);
-
+  // Color lerp targets.
+  const currentColor = useRef(new THREE.Color(color));
+  const targetColor = useRef(new THREE.Color(color));
   useEffect(() => {
-    anchorElementRef.current = layoutAnchorSelector
-      ? document.querySelector<HTMLElement>(layoutAnchorSelector)
-      : null;
-    navAnchorPrimedRef.current = false;
-    scrollImpulseRef.current = 0;
-  }, [layoutAnchorSelector]);
-
-  const effectiveTubularSegments = performanceTier === 'low'
-    ? isCoarsePointer
-      ? Math.min(tubularSegments, 160)
-      : Math.min(tubularSegments, 220)
-    : isCoarsePointer
-      ? Math.min(tubularSegments, 220)
-      : tubularSegments;
-  const effectiveRadialSegments = radialSegments;
-
-  // twistCount is now a shader uniform – geometry only rebuilds on path/tube shape changes
-  const geometry = useMemo(() => {
-    const curve = new MobiusCurve(pathRadius);
-    const baseGeometry = new THREE.TubeGeometry(
-      curve,
-      Math.max(120, effectiveTubularSegments),
-      tubeRadius,
-      Math.max(4, effectiveRadialSegments),
-      true
-    );
-    const weldedGeometry = mergeVertices(baseGeometry, 0.001);
-    weldedGeometry.computeVertexNormals();
-    const facetedGeometry = toCreasedNormals(weldedGeometry, Math.PI / 5);
-    baseGeometry.dispose();
-    weldedGeometry.dispose();
-    return facetedGeometry;
-  }, [effectiveRadialSegments, effectiveTubularSegments, pathRadius, tubeRadius]);
-
-  useEffect(() => {
-    return () => { geometry.dispose(); };
-  }, [geometry]);
-
-  useEffect(() => {
-    targetColorRef.current.set(color);
+    targetColor.current.set(color);
   }, [color]);
 
-  useEffect(() => {
-    if (reducedMotion) return;
-    let lastScrollY = window.scrollY;
-    const handleScroll = () => {
-      const delta = window.scrollY - lastScrollY;
-      lastScrollY = window.scrollY;
-      scrollImpulseRef.current = Math.max(-0.15, Math.min(0.15,
-        scrollImpulseRef.current + delta * 0.002
-      ));
-      scrollLiftRef.current = Math.min(0.42, window.scrollY * 0.00045);
-    };
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [reducedMotion]);
+  // Anchor + entrance bookkeeping.
+  const anchorRef = useRef<HTMLElement | null>(null);
+  const entranceStartRef = useRef<number | null>(null);
 
-  // onBeforeCompile injects:
-  //   1. Rodrigues rotation – twist the cross-section around the path tangent
-  //      (uTwistCount × uTwistAmount controls total rotation; 0=torus, 1=Möbius)
-  //   2. Compression wave – sinusoidal pinch traveling the path
-  //   3. Glitch – pseudo-random vertex displacement
-  const onBeforeCompile = useCallback((shader: THREE.WebGLProgramParametersWithUniforms) => {
-    shader.uniforms.uTime            = { value: 0 };
-    shader.uniforms.uPathRadius      = { value: 1.0 };
-    shader.uniforms.uTwistCount      = { value: 1.0 };
-    shader.uniforms.uTwistAmount     = { value: 1.0 };
-    shader.uniforms.uRollSpeed       = { value: 0.5 };
-    shader.uniforms.uPixelate        = { value: 0 };
-    shader.uniforms.uPixelGrid       = { value: 32 };
-    shader.uniforms.uPixelShuffle    = { value: 0 };
-    shader.uniforms.uMouse           = { value: new THREE.Vector3(0, 0, 0) };
-    shader.uniforms.uMouseVelocity   = { value: new THREE.Vector3(0, 0, 0) };
-    shader.uniforms.uMouseScreen     = { value: new THREE.Vector2(0.5, 0.5) };
-    shader.uniforms.uMouseFlow       = { value: new THREE.Vector2(0, 0) };
-    shader.uniforms.uDragOffset      = { value: new THREE.Vector2(0, 0) };
-    shader.uniforms.uDragTarget      = { value: new THREE.Vector3(0, 0, 0) };
-    shader.uniforms.uDragDirection   = { value: new THREE.Vector3(1, 0, 0) };
-    shader.uniforms.uObjectCenter    = { value: new THREE.Vector3(0, 0, 0) };
-    shader.uniforms.uStretchRadius   = { value: 1.2 };
-    shader.uniforms.uStretchStrength = { value: 0.18 };
-    shader.uniforms.uLiquidStrength  = { value: 0 };
-    shader.uniforms.uRippleRadius    = { value: 0.5 };
-    shader.uniforms.uRippleFrequency = { value: 3.0 };
-    shader.uniforms.uLiquidWaveSpeed = { value: 0.0 };
-    shader.uniforms.uSealedEdges     = { value: 1.0 };
-    shader.uniforms.uMagneticDrag    = { value: 1.15 };
-    shader.uniforms.uMagneticSwirl   = { value: 0.9 };
-    shader.uniforms.uMagneticDepth   = { value: 0.22 };
-    shader.uniforms.uWaveAmplitude   = { value: 0 };
-    shader.uniforms.uWaveFrequency   = { value: 3 };
-    shader.uniforms.uWaveSpeed       = { value: 1.8 };
-    shader.uniforms.uGlitchIntensity = { value: 0 };
-    shader.uniforms.uSpringTime      = { value: 10 };
-    shader.uniforms.uIsDragging      = { value: 0 };
-    shader.uniforms.uThinning        = { value: 0.5 };
-    shader.uniforms.uDragAngle       = { value: 0 };
-
-    // ── Global declarations + helper functions ──────────────────────────────────
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <common>',
-      `#include <common>
-
-uniform float uTime;
-uniform float uPathRadius;
-uniform float uTwistCount;
-uniform float uTwistAmount;
-uniform float uRollSpeed;
-uniform float uPixelate;
-uniform float uPixelGrid;
-uniform float uPixelShuffle;
-uniform vec3 uMouse;
-uniform vec3 uMouseVelocity;
-uniform vec2 uMouseScreen;
-uniform vec2 uMouseFlow;
-uniform vec2 uDragOffset;
-uniform vec3 uDragTarget;
-uniform vec3 uDragDirection;
-uniform vec3 uObjectCenter;
-uniform float uStretchRadius;
-uniform float uStretchStrength;
-uniform float uLiquidStrength;
-uniform float uRippleRadius;
-uniform float uRippleFrequency;
-uniform float uLiquidWaveSpeed;
-uniform float uSealedEdges;
-uniform float uMagneticDrag;
-uniform float uMagneticSwirl;
-uniform float uMagneticDepth;
-uniform float uWaveAmplitude;
-uniform float uWaveFrequency;
-uniform float uWaveSpeed;
-uniform float uGlitchIntensity;
-uniform float uSpringTime;
-uniform float uIsDragging;
-uniform float uThinning;
-uniform float uDragAngle;
-varying vec2 vMobiusUv;
-
-// Rodrigues rotation – rotate v around unit axis k by angle theta
-vec3 mobius_rodrigues(vec3 v, vec3 k, float theta) {
-  float c = cos(theta), s = sin(theta);
-  return v * c + cross(k, v) * s + k * dot(k, v) * (1.0 - c);
-}
-
-// Compression wave: sinusoidal pinch traveling the tube path
-float mobius_wave(float pathPos) {
-  float s = sin(uWaveFrequency * pathPos * 6.2831853 + uTime * uWaveSpeed);
-  return uWaveAmplitude * s * s;
-}
-
-// Pseudo-random hash for glitch vertex displacement
-vec3 mobius_hash(vec3 p) {
-  p = fract(p * vec3(443.8975, 397.2973, 491.1871));
-  p += dot(p.zxy, p.yxz + 19.19);
-  return fract(vec3(p.x * p.y, p.y * p.z, p.z * p.x));
-}`,
-    );
-
-    // ── Rotate object normal by the same Möbius twist (smooth-shaded presets) ──
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <beginnormal_vertex>',
-      `#include <beginnormal_vertex>
-
-{
-  float _pa  = uv.x * 6.28318530718;
-  vec3  _tgt = normalize(vec3(-sin(_pa), cos(_pa), 0.0));
-  float _ta  = uv.x * 3.14159265359 * uTwistCount * uTwistAmount + uTime * uRollSpeed;
-  vec3 _rotatedNormal = mobius_rodrigues(objectNormal, _tgt, _ta);
-  objectNormal = _rotatedNormal;
-}`,
-    );
-
-    // ── Vertex position deformations ─────────────────────────────────────────────
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      `#include <begin_vertex>
-
-// 1. Möbius twist + Global Core Thinning
-{
-  vMobiusUv = vec2(fract(uv.x), fract(uv.y));
-  float pathAngle  = uv.x * 6.28318530718;
-  vec3  pathCenter = vec3(uPathRadius * cos(pathAngle), uPathRadius * sin(pathAngle), 0.0);
-  vec3  tgt        = normalize(vec3(-sin(pathAngle), cos(pathAngle), 0.0));
-  float tangle     = uv.x * 3.14159265359 * uTwistCount * uTwistAmount + uTime * uRollSpeed;
-  vec3 offset      = transformed - pathCenter;
-  float decay      = exp(-uSpringTime * 3.0);
-  float bounce     = cos(uSpringTime * 12.0) * decay;
-  float springFactor = mix(bounce, 1.0, uIsDragging);
-  float globalStretch = uStretchStrength * springFactor;
-  // Allow pronounced necking while preserving a readable ribbon volume.
-  float squeeze = 1.0 - clamp(globalStretch * uThinning * 0.6, 0.0, 0.48);
-  offset *= squeeze;
-  transformed = pathCenter + mobius_rodrigues(offset, tgt, tangle);
-}
-
-// 2. Compression wave
-// seamFade zeroes the displacement at the weld (uv.x ≈ 0/1) where toCreasedNormals
-// splits coincident vertices, preventing the mesh from tearing open during the wave.
-if (uWaveAmplitude > 0.0) {
-  float seamDist = min(vMobiusUv.x, 1.0 - vMobiusUv.x);
-  float seamFade = smoothstep(0.0, 0.06, seamDist);
-  float pinch = mobius_wave(uv.x) * seamFade;
-  transformed -= objectNormal * pinch;
-}
-
-// 3. Glitch displacement
-if (uGlitchIntensity > 0.0) {
-  vec3 noise = mobius_hash(position + floor(uTime * 8.0) * 0.1);
-  transformed += (noise - 0.5) * uGlitchIntensity * 0.12;
-}
-
-// 4. Magnetic liquid mesh – smear the surface with a 2D fluid-like flow field.
-if (uLiquidStrength != 0.0) {
-  vec4 clipPosition = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
-  vec2 screenUv = (clipPosition.xy / max(clipPosition.w, 0.0001)) * 0.5 + 0.5;
-  vec2 diff = screenUv - uMouseScreen;
-  float dist = length(diff);
-  float radius = mix(0.04, 0.3, clamp((uRippleRadius - 0.1) / 4.9, 0.0, 1.0));
-  float influence = 1.0 - smoothstep(0.0, radius, dist);
-  float pressureCurve = mix(0.8, 2.8, clamp((uRippleFrequency - 1.0) / 19.0, 0.0, 1.0));
-  float pressure = pow(max(influence, 0.0), pressureCurve);
-  vec2 flowVelocity = uMouseFlow;
-  float flowMagnitude = length(flowVelocity);
-  vec2 tangent = dist > 0.0001 ? normalize(vec2(-diff.y, diff.x)) : vec2(0.0);
-  vec2 swirl = tangent * flowMagnitude * uMagneticSwirl;
-  vec2 drag = flowVelocity * uMagneticDrag;
-  vec2 flow = (drag + swirl) * pressure * uLiquidStrength * 0.045;
-  transformed.x += flow.x;
-  transformed.y += flow.y;
-  transformed.z += length(flow) * abs(uLiquidStrength) * uMagneticDepth;
-}
-
-// 5. Direct drag stretch — V-Shape Rubber Band + 1:1 Tracking
-if (length(uDragOffset) > 0.0001 || uSpringTime < 2.0) {
-  vec3 dragDir = normalize(uDragDirection);
-  vec3 localVertexDir = normalize(transformed);
-  float dotDist = dot(localVertexDir, dragDir);
-  float globalMask = smoothstep(-0.3, 1.0, dotDist);
-
-  float seamDistance = min(vMobiusUv.x, 1.0 - vMobiusUv.x);
-  float seamBlend = 0.96 + 0.04 * smoothstep(0.0, 0.14, seamDistance);
-  float decay = exp(-uSpringTime * 3.5);
-  float bounce = cos(uSpringTime * 12.0) * decay;
-  float springFactor = mix(bounce, 1.0, uIsDragging);
-  float pullPower = pow(globalMask, 1.1) * seamBlend;
-  float currentStretch = pullPower * uStretchStrength * springFactor;
-
-  vec3 pointOnAxis = dragDir * dot(transformed, dragDir);
-  vec3 pinchVector = pointOnAxis - transformed;
-  float pinchStrength = globalMask * (1.0 - globalMask) * 2.5;
-  float pinchAmount = currentStretch * 0.35 * pinchStrength;
-
-  transformed += dragDir * currentStretch;
-  transformed += pinchVector * pinchAmount;
-  transformed.z += currentStretch * 0.08;
-}
-
-// 6. Linear digital breakup – snap the mesh into chunky blocks.
-  if (uPixelate > 0.0) {
-    float grid = max(uPixelGrid * 0.18, 1.0);
-    float seamDistance = min(vMobiusUv.x, 1.0 - vMobiusUv.x);
-    float seamMask = smoothstep(0.0, 0.035, seamDistance);
-    float pixelStrength = clamp(uPixelate, 0.0, 1.0) * seamMask;
-    vec3 snapped = floor(transformed * grid + 0.5) / grid;
-    float shuffleRate = 1.2 + uPixelShuffle * 5.0;
-    float shuffleTime = uTime * shuffleRate;
-    float shuffleStep = floor(shuffleTime);
-    float shuffleBlend = smoothstep(0.0, 1.0, fract(shuffleTime));
-    vec3 blockSeed = vec3(
-      floor(vMobiusUv.x * grid + 0.5),
-      floor(vMobiusUv.y * grid + 0.5),
-      shuffleStep
-    );
-    vec3 nextBlockSeed = vec3(blockSeed.xy, shuffleStep + 1.0);
-    vec3 blockNoiseA = mobius_hash(blockSeed) - 0.5;
-    vec3 blockNoiseB = mobius_hash(nextBlockSeed) - 0.5;
-    vec3 blockNoise = mix(blockNoiseA, blockNoiseB, shuffleBlend) * (0.1 / grid);
-    transformed = mix(transformed, snapped + blockNoise, pixelStrength);
-  }`,
-    );
-
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <common>',
-      `#include <common>
-
-uniform float uTime;
-uniform float uPixelate;
-uniform float uPixelGrid;
-uniform float uPixelShuffle;
-uniform float uSpringTime;
-uniform float uIsDragging;
-varying vec2 vMobiusUv;`,
-    );
-
-    shader.fragmentShader = shader.fragmentShader.replace(
-      'vec4 diffuseColor = vec4( diffuse, opacity );',
-      `vec4 diffuseColor = vec4( diffuse, opacity );
-if (uPixelate > 0.0) {
-  float uvGrid = max(uPixelGrid * 0.3, 1.0);
-  vec2 blockUv = floor(vMobiusUv * uvGrid) / uvGrid;
-  float shimmerPhase = uTime * (0.8 + uPixelShuffle * 2.2);
-  float shimmer = 0.5 + 0.5 * sin((blockUv.x + blockUv.y) * uvGrid * 3.14159265 + shimmerPhase);
-  float blockMask = smoothstep(0.42, 0.58, shimmer);
-  vec3 shifted = vec3(
-    diffuseColor.r * (0.84 + 0.16 * blockMask),
-    diffuseColor.g * (0.96 - 0.08 * blockMask),
-    diffuseColor.b * (1.0 - 0.08 * blockMask)
-  );
-  diffuseColor.rgb = mix(diffuseColor.rgb, shifted, clamp(uPixelate, 0.0, 1.0));
-}
-float releaseFlash = exp(-uSpringTime * 10.0) * 0.4;
-diffuseColor.rgb += uIsDragging < 0.5 ? releaseFlash : 0.0;`,
-    );
-
-    shaderRef.current = shader;
-  }, []);
+  // Scratch objects (avoid per-frame allocation).
+  const scratchVec = useRef(new THREE.Vector3());
+  const scratchDir = useRef(new THREE.Vector3());
 
   useFrame((state, delta) => {
-    if (!meshRef.current || !groupRef.current) return;
-    const safeDelta = Math.min(delta, 0.033);
-    const canvasRect = state.gl.domElement.getBoundingClientRect();
-    const canvasWidth = Math.max(canvasRect.width || state.size.width || 1, 1);
-    const canvasHeight = Math.max(canvasRect.height || state.size.height || 1, 1);
+    const group = groupRef.current;
+    const mesh = meshRef.current;
+    const material = materialRef.current;
+    if (!group || !mesh) return;
 
-    // ── Color lerp ────────────────────────────────────────────────────────────
-    if (materialRef.current) {
-      currentColorRef.current.lerp(targetColorRef.current, 1 - Math.exp(-safeDelta / 0.18));
-      materialRef.current.color.copy(currentColorRef.current);
-      materialRef.current.emissive.copy(currentColorRef.current);
+    const d = Math.min(delta, 0.033);
+    const camera = state.camera as THREE.PerspectiveCamera;
+    const vw = Math.max(state.size.width, 1);
+    const vh = Math.max(state.size.height, 1);
+
+    // ── Color ────────────────────────────────────────────────────────────
+    if (material) {
+      currentColor.current.lerp(targetColor.current, 1 - Math.exp(-d / 0.2));
+      material.color.copy(currentColor.current);
+      material.emissive.copy(currentColor.current);
     }
 
-    let entranceProgress = 1;
+    // ── Entrance (scale + grow over ~0.7s) ───────────────────────────────
+    if (entranceStartRef.current === null) entranceStartRef.current = state.clock.elapsedTime;
+    const elapsed = state.clock.elapsedTime - entranceStartRef.current;
+    const entrance = 1 - Math.pow(1 - Math.min(1, elapsed / 0.7), 3);
 
-    if (initialDropWarmupFramesRef.current < 2) {
-      initialDropWarmupFramesRef.current += 1;
-      entranceProgress = 0;
-    } else {
-      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      if (initialDropStartRef.current === null) {
-        initialDropStartRef.current = now;
-      }
-      const elapsed = now - initialDropStartRef.current;
-      const rawProgress = Math.min(1, elapsed / 700);
-      // Cubic ease out
-      entranceProgress = 1 - Math.pow(1 - rawProgress, 3);
+    // ── Anchor to the hero band, derive a fitting scale ──────────────────
+    const visibleHeight =
+      2 * Math.abs(camera.position.z) * Math.tan(((camera.fov * Math.PI) / 180) / 2);
+    let targetX = 0;
+    let targetY = 0;
+    let fitScale = 0.5;
+
+    let anchor = anchorRef.current;
+    if (!anchor || !document.body.contains(anchor)) {
+      anchor = document.querySelector<HTMLElement>(ANCHOR_SELECTOR);
+      anchorRef.current = anchor;
     }
+    if (anchor) {
+      const rect = anchor.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const ndcX = (centerX / vw) * 2 - 1;
+      const ndcY = -(centerY / vh) * 2 + 1;
 
-    if (materialRef.current) {
-      materialRef.current.emissiveIntensity = emissiveIntensity * entranceProgress;
+      // Unproject the band center onto the z = 0 plane.
+      scratchVec.current.set(ndcX, ndcY, 0.5).unproject(camera);
+      scratchDir.current.copy(scratchVec.current).sub(camera.position).normalize();
+      const t = (0 - camera.position.z) / scratchDir.current.z;
+      targetX = camera.position.x + scratchDir.current.x * t;
+      targetY = camera.position.y + scratchDir.current.y * t;
+
+      const bandWorldHeight = (rect.height / vh) * visibleHeight;
+      fitScale = (bandWorldHeight * 0.9) / OUTER_DIAMETER;
     }
+    fitScale = Math.max(0.18, Math.min(fitScale, 0.85));
 
-    const lerpFactor = reducedMotion ? 0.12 : 1 - Math.exp(-safeDelta / lerpDurationRef.current);
-    // Fast lerp – used for look-at rotation so it tracks the cursor directly.
-    const lookRotLerp = reducedMotion ? lerpFactor : 1 - Math.exp(-safeDelta / 0.10);
+    const mx = reducedMotion ? 0 : mouseRef.current.x;
+    const my = reducedMotion ? 0 : mouseRef.current.y;
+    const lerp = reducedMotion ? 0.1 : 1 - Math.exp(-d / 0.18);
 
-    let resolvedAnchorX = layoutPositionX;
-    let resolvedAnchorY = layoutPositionY;
-    const overviewScrollLift = activePreset === 'home' && !layoutAnchorSelector ? scrollLiftRef.current : 0;
+    // Position (anchor + subtle cursor parallax).
+    const posX = targetX + mx * 0.12;
+    const posY = targetY + my * 0.08;
+    group.position.x += (posX - group.position.x) * lerp;
+    group.position.y += (posY - group.position.y) * lerp;
 
-    if (layoutAnchorSelector) {
-      if (!anchorElementRef.current || !document.body.contains(anchorElementRef.current)) {
-        anchorElementRef.current = document.querySelector<HTMLElement>(layoutAnchorSelector);
-      }
+    // Scale (fit * entrance).
+    const scaleTarget = fitScale * entrance;
+    group.scale.x += (scaleTarget - group.scale.x) * lerp;
+    group.scale.y += (scaleTarget - group.scale.y) * lerp;
+    group.scale.z += (scaleTarget - group.scale.z) * lerp;
 
-      const anchorElement = anchorElementRef.current;
-      if (anchorElement) {
-        const rect = anchorElement.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const ndcX = ((centerX - canvasRect.left) / canvasWidth) * 2 - 1;
-        const ndcY = -((centerY - canvasRect.top) / canvasHeight) * 2 + 1;
+    // Tilt toward the cursor (parallax depth).
+    const tiltX = BASE_TILT_X + -my * 0.16;
+    const tiltY = mx * 0.3;
+    group.rotation.x += (tiltX - group.rotation.x) * lerp;
+    group.rotation.y += (tiltY - group.rotation.y) * lerp;
 
-        const cameraDir = state.camera.getWorldDirection(scratchVec5.current).negate();
-        anchorPlaneRef.current.setFromNormalAndCoplanarPoint(cameraDir, scratchVec.current.set(0, 0, layoutPositionZ));
-        anchorRaycasterRef.current.setFromCamera(anchorNdcRef.current.set(ndcX, ndcY), state.camera);
-        anchorRaycasterRef.current.ray.intersectPlane(anchorPlaneRef.current, anchorWorldRef.current);
-        resolvedAnchorX = anchorWorldRef.current.x;
-        resolvedAnchorY = anchorWorldRef.current.y;
-
-        if (!navAnchorPrimedRef.current && layoutAnchorSelector === '[data-mobius-anchor="shell-top-nav-mobius"]') {
-          anchorDisplayRef.current.x = resolvedAnchorX;
-          anchorDisplayRef.current.y = resolvedAnchorY;
-          navAnchorPrimedRef.current = true;
-        }
-      }
-    }
-
-    const anchorLerp = reducedMotion ? 1 : 1 - Math.exp(-safeDelta / 0.22);
-    anchorDisplayRef.current.x += (resolvedAnchorX - anchorDisplayRef.current.x) * anchorLerp;
-    anchorDisplayRef.current.y += (resolvedAnchorY - anchorDisplayRef.current.y) * anchorLerp;
-
-    const anchorX = anchorDisplayRef.current.x;
-    const anchorY = anchorDisplayRef.current.y;
-    const isShellTopNavRoute = layoutAnchorSelector === '[data-mobius-anchor="shell-top-nav-mobius"]';
-    const navCursorScale = isShellTopNavRoute ? 0.35 : 1;
-    const navParallaxScale = isShellTopNavRoute ? 0 : 1;
-    const navScrollScale = isShellTopNavRoute ? 1 - navScrollProgress * 0.08 : 1;
-    const navScrollLift = isShellTopNavRoute ? navScrollProgress * 0.04 : 0;
-    const routeEntryLift = 0;
-
-    let targetX = reducedMotion
-      ? anchorX
-      : anchorX - mouseRef.current.x * mouseInfluence * 0.4 * navCursorScale * navParallaxScale;
-
-    let targetY = reducedMotion
-      ? anchorY + overviewScrollLift - navScrollLift - routeEntryLift
-      : anchorY - mouseRef.current.y * mouseInfluence * 0.2 * navCursorScale * navParallaxScale + overviewScrollLift - navScrollLift - routeEntryLift;
-
-    if (isCoarsePointer && !dragStateRef.current.active) {
-      targetX = anchorX;
-      targetY = anchorY + overviewScrollLift - navScrollLift - routeEntryLift;
-    }
-
-    // Normalize against a fixed viewport-height baseline so the Mobius keeps
-    // the same perceived size across tall and short windows.
-    const viewportHeightScale = VIEWPORT_HEIGHT_BASELINE / Math.max(state.size.height, 1);
-    const targetScale = layoutScale * scale * navScrollScale * entranceProgress * viewportHeightScale * navScaleMultiplier;
-    const hoverTarget = navAcrylicHovered ? 1 : 0;
-    navHoverProgressRef.current += (hoverTarget - navHoverProgressRef.current) * (reducedMotion ? 0.18 : 0.09);
-    const hoverEase = navHoverProgressRef.current * navHoverProgressRef.current * (3 - 2 * navHoverProgressRef.current);
-    const hoverPathScale = 1 + hoverEase * 0.22;
-    // --- LEASH / TENSION LOGIC ---
-    const MAX_STRETCH = 1.4;
-    const mouseVector = dragMouseVectorRef.current.set(
-      dragStateRef.current.targetX,
-      dragStateRef.current.targetY,
-    );
-    const currentDist = mouseVector.length();
-
-    const positionedTargetX = targetX + snapOffsetRef.current.x;
-    const positionedTargetY = targetY + snapOffsetRef.current.y;
-
-    groupRef.current.position.x += (positionedTargetX - groupRef.current.position.x) * lerpFactor;
-    groupRef.current.position.y += (positionedTargetY - groupRef.current.position.y) * lerpFactor;
-    groupRef.current.position.z += (layoutPositionZ - groupRef.current.position.z) * lerpFactor;
-
-    // Use the logo's actual current on-screen position as the look-at center
-    // after position/parallax have been applied for this frame.
-    groupRef.current.getWorldPosition(scratchVec.current);
-    scratchVec.current.project(state.camera);
-    const lookDx = mouseRef.current.x - scratchVec.current.x;
-    const lookDy = mouseRef.current.y - scratchVec.current.y;
-    const lookDist = Math.sqrt(lookDx * lookDx + lookDy * lookDy);
-
-    let targetLookX = lookDx;
-    let targetLookY = lookDy;
-    if (lookDist > 1.0) {
-      targetLookX = lookDx / lookDist;
-      targetLookY = lookDy / lookDist;
-    }
-
-    if (isCoarsePointer && !dragStateRef.current.active) {
-      targetLookX = 0;
-      targetLookY = 0;
-    }
-
-    if (dragStateRef.current.active && currentDist > 0.0001) {
-      const dragLookX = mouseVector.x / currentDist;
-      const dragLookY = mouseVector.y / currentDist;
-      const dragTiltInfluence = THREE.MathUtils.clamp(currentDist / MAX_STRETCH, 0, 1);
-      targetLookX = THREE.MathUtils.lerp(targetLookX, dragLookX, dragTiltInfluence * 0.85);
-      targetLookY = THREE.MathUtils.lerp(targetLookY, dragLookY, dragTiltInfluence * 0.85);
-    }
-
-    const LOOK_SENS_Y = 0.62 * navCursorScale;
-    const LOOK_SENS_X = 0.62 * navCursorScale;
-    const targetRotX = reducedMotion
-      ? layoutRotationX
-      : layoutRotationX - targetLookY * LOOK_SENS_X;
-    const targetRotY = reducedMotion
-      ? layoutRotationY
-      : layoutRotationY + targetLookX * LOOK_SENS_Y;
-    const targetRotZ = layoutRotationZ + scrollImpulseRef.current;
-
-    groupRef.current.rotation.x += (targetRotX - groupRef.current.rotation.x) * lookRotLerp;
-    groupRef.current.rotation.y += (targetRotY - groupRef.current.rotation.y) * lookRotLerp;
-    groupRef.current.rotation.z += (targetRotZ - groupRef.current.rotation.z) * lerpFactor;
-    groupRef.current.scale.x += ((targetScale * hoverPathScale) - groupRef.current.scale.x) * lerpFactor;
-    groupRef.current.scale.y += ((targetScale * hoverPathScale) - groupRef.current.scale.y) * lerpFactor;
-    groupRef.current.scale.z += ((targetScale) - groupRef.current.scale.z) * lerpFactor;
-
-    meshRef.current.rotation.y += (reducedMotion ? rotationSpeed * 0.2 : rotationSpeed) * delta;
-    const routeWarpScaleX = 1 + routeTransitionDecay * 0.004;
-    const routeWarpScaleY = 1 - routeTransitionDecay * 0.002;
-    const routeWarpScaleZ = 1 + routeTransitionDecay * 0.006;
-    meshRef.current.scale.x += (routeWarpScaleX - meshRef.current.scale.x) * (reducedMotion ? 0.16 : 0.08);
-    meshRef.current.scale.y += (routeWarpScaleY - meshRef.current.scale.y) * (reducedMotion ? 0.16 : 0.08);
-    meshRef.current.scale.z += (routeWarpScaleZ - meshRef.current.scale.z) * (reducedMotion ? 0.16 : 0.08);
-    scrollImpulseRef.current *= reducedMotion ? 0.72 : 0.88;
-
-    const interactionUpdateModulo = dragStateRef.current.active || routeTransitionDecay > 0.001
-      ? 1
-      : isCoarsePointer
-        ? performanceTier === 'low' ? 3 : 2
-        : performanceTier === 'high'
-          ? 1
-          : performanceTier === 'low'
-            ? 3
-            : 2;
-    const shouldUpdateInteraction = interactionUpdateModulo === 1
-      || (lowTierInteractionFrameRef.current++ % interactionUpdateModulo === 0);
-    let screenX = cachedScreenStateRef.current.screenX || (canvasRect.left + canvasWidth * 0.5);
-    let screenY = cachedScreenStateRef.current.screenY || (canvasRect.top + canvasHeight * 0.5);
-    let screenLocalX = cachedScreenStateRef.current.screenLocalX || (canvasWidth * 0.5);
-    let screenLocalY = cachedScreenStateRef.current.screenLocalY || (canvasHeight * 0.5);
-    let projectedRadius = cachedScreenStateRef.current.projectedRadius || 0;
-
-    if (shouldUpdateInteraction) {
-      if (!geometry.boundingBox) {
-        geometry.computeBoundingBox();
-      }
-      const bounds = geometry.boundingBox;
-
-      if (bounds) {
-        const min = bounds.min;
-        const max = bounds.max;
-        const corners = [
-          [min.x, min.y, min.z],
-          [min.x, min.y, max.z],
-          [min.x, max.y, min.z],
-          [min.x, max.y, max.z],
-          [max.x, min.y, min.z],
-          [max.x, min.y, max.z],
-          [max.x, max.y, min.z],
-          [max.x, max.y, max.z],
-        ] as const;
-
-        let minScreenX = Number.POSITIVE_INFINITY;
-        let maxScreenX = Number.NEGATIVE_INFINITY;
-        let minScreenY = Number.POSITIVE_INFINITY;
-        let maxScreenY = Number.NEGATIVE_INFINITY;
-
-        for (const [x, y, z] of corners) {
-          scratchVec.current.set(x, y, z);
-          meshRef.current.localToWorld(scratchVec.current);
-          scratchVec.current.project(state.camera);
-
-          const px = (scratchVec.current.x * 0.5 + 0.5) * canvasWidth;
-          const py = (-scratchVec.current.y * 0.5 + 0.5) * canvasHeight;
-          minScreenX = Math.min(minScreenX, px);
-          maxScreenX = Math.max(maxScreenX, px);
-          minScreenY = Math.min(minScreenY, py);
-          maxScreenY = Math.max(maxScreenY, py);
-        }
-
-        if (Number.isFinite(minScreenX) && Number.isFinite(maxScreenX) && Number.isFinite(minScreenY) && Number.isFinite(maxScreenY)) {
-          screenLocalX = (minScreenX + maxScreenX) * 0.5;
-          screenLocalY = (minScreenY + maxScreenY) * 0.5;
-          screenX = canvasRect.left + screenLocalX;
-          screenY = canvasRect.top + screenLocalY;
-          projectedRadius = Math.max(maxScreenX - minScreenX, maxScreenY - minScreenY) * 0.5;
-        }
-      }
-
-      cachedScreenStateRef.current = { screenX, screenY, screenLocalX, screenLocalY, projectedRadius };
-    }
-
-    const shouldAutoCenterToAnchor = Boolean(layoutAnchorSelector) && !dragStateRef.current.active;
-    if (meshGroupRef.current) {
-      let targetVisualOffsetX = cachedVisualOffsetRef.current.x;
-      let targetVisualOffsetY = cachedVisualOffsetRef.current.y;
-
-      if (shouldUpdateInteraction) {
-        targetVisualOffsetX = 0;
-        targetVisualOffsetY = 0;
-
-        if (shouldAutoCenterToAnchor) {
-          groupRef.current.getWorldPosition(scratchVec2.current);
-          scratchVec3.current.copy(scratchVec2.current).project(state.camera);
-
-          const visualCenterNdcX = (screenLocalX / canvasWidth) * 2 - 1;
-          const visualCenterNdcY = -(screenLocalY / canvasHeight) * 2 + 1;
-
-          centerPlaneRef.current.setFromNormalAndCoplanarPoint(
-            state.camera.getWorldDirection(scratchVec5.current).negate(),
-            scratchVec2.current,
-          );
-          originRaycasterRef.current.setFromCamera(
-            originNdcRef.current.set(scratchVec3.current.x, scratchVec3.current.y),
-            state.camera,
-          );
-          visualRaycasterRef.current.setFromCamera(
-            visualNdcRef.current.set(visualCenterNdcX, visualCenterNdcY),
-            state.camera,
-          );
-          originRaycasterRef.current.ray.intersectPlane(centerPlaneRef.current, scratchVec3.current);
-          visualRaycasterRef.current.ray.intersectPlane(centerPlaneRef.current, scratchVec4.current);
-          scratchVec3.current.sub(scratchVec4.current);
-          scratchVec3.current.applyQuaternion(
-            groupRef.current.getWorldQuaternion(scratchQuat.current).invert(),
-          );
-          targetVisualOffsetX = scratchVec3.current.x;
-          targetVisualOffsetY = scratchVec3.current.y;
-        }
-
-        cachedVisualOffsetRef.current = { x: targetVisualOffsetX, y: targetVisualOffsetY };
-      }
-
-      const visualCenterEase = reducedMotion ? 0.32 : 0.14;
-      meshGroupRef.current.position.x += (targetVisualOffsetX - meshGroupRef.current.position.x) * visualCenterEase;
-      meshGroupRef.current.position.y += (targetVisualOffsetY - meshGroupRef.current.position.y) * visualCenterEase;
-      meshGroupRef.current.position.z += (0 - meshGroupRef.current.position.z) * visualCenterEase;
-      meshGroupRef.current.updateMatrixWorld();
-    }
-
-    const isPortfolioHomeRoute = layoutAnchorSelector === '[data-mobius-anchor="portfolio-home-mobius"]';
-    const hotspotScale = isShellTopNavRoute
-      ? navCursorScale
-      : isPortfolioHomeRoute
-        ? 0.82
-        : 1;
-    interactionBoundsRef.current.x = screenX;
-    interactionBoundsRef.current.y = screenY;
-    interactionBoundsRef.current.size = Math.max(
-      120 * hotspotScale,
-      projectedRadius * 2.35 * hotspotScale,
-    );
-    interactionBoundsRef.current.visible = true;
-
-    if (shouldUpdateInteraction) {
-      const hoverCenterNdcX = (screenLocalX / canvasWidth) * 2 - 1;
-      const hoverCenterNdcY = -(screenLocalY / canvasHeight) * 2 + 1;
-      const hoverCenterDx = mouseRef.current.x - hoverCenterNdcX;
-      const hoverCenterDy = mouseRef.current.y - hoverCenterNdcY;
-      const hoverDistance = Math.sqrt(hoverCenterDx * hoverCenterDx + hoverCenterDy * hoverCenterDy);
-      const hoverRadius = 1.2;
-      const hoverT = THREE.MathUtils.clamp(1 - hoverDistance / hoverRadius, 0, 1);
-      const hoverProximity = hoverT * hoverT * (3 - 2 * hoverT);
-      cachedHoverProximityRef.current = hoverProximity;
-      hoverProximityRef.current += (hoverProximity - hoverProximityRef.current) * (reducedMotion ? 0.07 : 0.12);
-
-      const cameraDir = state.camera.getWorldDirection(scratchVec5.current).negate();
-      pointerPlaneRef.current.setFromNormalAndCoplanarPoint(cameraDir, groupRef.current.position);
-      pointerRaycasterRef.current.setFromCamera(pointerNdcRef.current.set(mouseRef.current.x, mouseRef.current.y), state.camera);
-      pointerRaycasterRef.current.ray.intersectPlane(pointerPlaneRef.current, pointerWorldRef.current);
-      mouseScreenRef.current.set(
-        mouseRef.current.x * 0.5 + 0.5,
-        mouseRef.current.y * 0.5 + 0.5
-      );
-      gooPointerRef.current.lerp(
-        pointerWorldRef.current,
-        reducedMotion ? 0.04 : magneticLag
-      );
-      pointerVelocityScratchRef.current
-        .copy(pointerWorldRef.current)
-        .sub(previousPointerWorldRef.current)
-        .multiplyScalar(1 / Math.max(delta, 0.0001));
-      pointerVelocityRef.current.lerp(
-        pointerVelocityScratchRef.current,
-        reducedMotion ? 0.08 : 0.18
-      );
-      previousPointerWorldRef.current.copy(pointerWorldRef.current);
-      mouseVelocity2DScratchRef.current
-        .copy(mouseScreenRef.current)
-        .sub(previousMouseScreenRef.current)
-        .multiplyScalar(1 / Math.max(delta, 0.0001));
-      mouseVelocity2DRef.current.lerp(
-        mouseVelocity2DScratchRef.current,
-        reducedMotion ? 0.08 : 0.2
-      );
-      previousMouseScreenRef.current.copy(mouseScreenRef.current);
-    } else {
-      hoverProximityRef.current += (cachedHoverProximityRef.current - hoverProximityRef.current) * (reducedMotion ? 0.05 : 0.08);
-    }
-    dragOffsetRef.current.x += (dragStateRef.current.targetX - dragOffsetRef.current.x) * (dragStateRef.current.active ? 0.22 : 0.1);
-    dragOffsetRef.current.y += (dragStateRef.current.targetY - dragOffsetRef.current.y) * (dragStateRef.current.active ? 0.22 : 0.1);
-    dragTargetWorldRef.current.copy(pointerWorldRef.current);
-    dragDirectionWorldRef.current.copy(pointerWorldRef.current).sub(groupRef.current.position);
-    if (dragDirectionWorldRef.current.lengthSq() < 0.0001) {
-      dragDirectionWorldRef.current.set(1, 0, 0);
-    } else {
-      dragDirectionWorldRef.current.normalize();
-    }
-
-    // Push all deformation uniforms each frame – no re-render cost
-    if (shaderRef.current) {
-      const s = useMobiusStore.getState();
-      const isDragging = dragStateRef.current.active;
-      const routeWaveAmplitude = routeTransitionDecay * 0.0;
-      const routeWaveFrequency = routeTransitionDecay * 0.0;
-      const routeWaveSpeed = routeTransitionDecay * 0.0;
-      const routeTwistLift = routeTransitionDecay * 0.0;
-      const hoverPixelCurve = hoverProximityRef.current * hoverProximityRef.current;
-      const hoverHoldLift = hoverPixelCurve * Math.min(0.95, s.glitchIntensity * 0.7);
-      const routePixelLift = routeTransitionDecay * Math.min(1.1, s.glitchIntensity);
-      const shuffleStrength = Math.max(hoverPixelCurve, Math.min(1, routeTransitionDecay * 1.2));
-      const pixelateStrength = s.distortionMode === 'linear'
-        ? Math.min(1, hoverHoldLift + routePixelLift)
-        : 0;
-      const liquidEnvelope = s.distortionMode === 'magnetic' && !isCoarsePointer
-        ? THREE.MathUtils.clamp(hoverProximityRef.current + routeTransitionDecay * 0.65, 0, 1)
-        : 0;
-      const timeStep = reducedMotion ? delta * 0.35 : delta;
-      shaderRef.current.uniforms.uTime.value           += timeStep;
-      shaderRef.current.uniforms.uPathRadius.value      = s.pathRadius;
-      shaderRef.current.uniforms.uTwistCount.value      = s.twistCount;
-      shaderRef.current.uniforms.uTwistAmount.value     = s.uTwistAmount + routeTwistLift;
-      shaderRef.current.uniforms.uRollSpeed.value       = reducedMotion ? s.rollSpeed * 0.35 : s.rollSpeed;
-      shaderRef.current.uniforms.uPixelate.value        = pixelateStrength;
-      shaderRef.current.uniforms.uPixelGrid.value       = s.gridSize;
-      shaderRef.current.uniforms.uPixelShuffle.value    = s.distortionMode === 'linear' ? shuffleStrength : 0;
-      shaderRef.current.uniforms.uMouse.value.lerp(gooPointerRef.current, reducedMotion ? 0.04 : 0.08);
-      shaderRef.current.uniforms.uMouseVelocity.value.lerp(
-        pointerVelocityRef.current,
-        reducedMotion ? 0.08 : 0.16
-      );
-      shaderRef.current.uniforms.uMouseScreen.value.lerp(
-        mouseScreenRef.current,
-        reducedMotion ? 0.08 : 0.22
-      );
-      shaderRef.current.uniforms.uMouseFlow.value.lerp(
-        mouseVelocity2DRef.current,
-        reducedMotion ? 0.08 : 0.18
-      );
-      shaderRef.current.uniforms.uDragOffset.value.lerp(
-        dragOffsetRef.current,
-        reducedMotion ? 0.1 : 0.2
-      );
-      shaderRef.current.uniforms.uDragTarget.value.lerp(
-        dragTargetWorldRef.current,
-        reducedMotion ? 0.1 : 0.2
-      );
-      if (groupRef.current) {
-        groupRef.current.updateMatrixWorld();
-        const invMatrix = scratchMat4.current.copy(groupRef.current.matrixWorld).invert();
-        const localCursor = scratchVec.current.copy(pointerWorldRef.current).applyMatrix4(invMatrix);
-        const normalizedLocalCursor = scratchVec2.current.copy(localCursor).normalize();
-        shaderRef.current.uniforms.uDragAngle.value = Math.atan2(localCursor.y, localCursor.x);
-        shaderRef.current.uniforms.uDragDirection.value.copy(normalizedLocalCursor);
-      }
-      shaderRef.current.uniforms.uObjectCenter.value.copy(groupRef.current.position);
-      shaderRef.current.uniforms.uStretchRadius.value = THREE.MathUtils.lerp(0.9, 3.4, THREE.MathUtils.clamp(s.rippleRadius / 5, 0, 1));
-      const isReleaseFrame = !isDragging && wasDraggingRef.current;
-      if (isReleaseFrame) {
-        // Capture stretch direction before zeroing — teleport the logo along it
-        const mag = dragOffsetRef.current.length();
-        releaseStrengthRef.current = Math.min(mag / 1.4, 1);
-        if (mag > 0.08) {
-          const jumpDist = Math.min(mag, isCoarsePointer ? 3.4 : 3) * (isCoarsePointer ? 0.24 : 0.044);
-          snapTargetOffsetRef.current.x = -(dragOffsetRef.current.x / mag) * jumpDist;
-          snapTargetOffsetRef.current.y = -(dragOffsetRef.current.y / mag) * jumpDist;
-          snapPhaseRef.current = 'return';
-        }
-        dragOffsetRef.current.x = 0;
-        dragOffsetRef.current.y = 0;
-        dragStateRef.current.targetX = 0;
-        dragStateRef.current.targetY = 0;
-      }
-
-      // Snap state machine: glide briefly into the release jump, then ease it back to origin.
-      if (snapPhaseRef.current === 'return') {
-        const snapIn = reducedMotion ? 0.18 : isCoarsePointer ? 0.6 : 0.6;
-        const snapOut = reducedMotion ? 0.11 : isCoarsePointer ? 0.05 : 0.055;
-        snapOffsetRef.current.x += (snapTargetOffsetRef.current.x - snapOffsetRef.current.x) * snapIn;
-        snapOffsetRef.current.y += (snapTargetOffsetRef.current.y - snapOffsetRef.current.y) * snapIn;
-        snapTargetOffsetRef.current.x += (0 - snapTargetOffsetRef.current.x) * snapOut;
-        snapTargetOffsetRef.current.y += (0 - snapTargetOffsetRef.current.y) * snapOut;
-        if (
-          Math.abs(snapOffsetRef.current.x) < 0.001 &&
-          Math.abs(snapOffsetRef.current.y) < 0.001 &&
-          Math.abs(snapTargetOffsetRef.current.x) < 0.001 &&
-          Math.abs(snapTargetOffsetRef.current.y) < 0.001
-        ) {
-          snapOffsetRef.current.x = 0;
-          snapOffsetRef.current.y = 0;
-          snapTargetOffsetRef.current.x = 0;
-          snapTargetOffsetRef.current.y = 0;
-          snapPhaseRef.current = 'idle';
-        }
-      }
-
-      const rawStretch = isReleaseFrame ? 0 : dragOffsetRef.current.length();
-      const MAX_STRETCH = 1.4;
-      shaderRef.current.uniforms.uStretchStrength.value = Math.min(rawStretch, MAX_STRETCH);
-      shaderRef.current.uniforms.uLiquidStrength.value  = s.distortionMode === 'magnetic' ? s.liquidStrength * liquidEnvelope : 0;
-      shaderRef.current.uniforms.uRippleRadius.value    = s.rippleRadius;
-      shaderRef.current.uniforms.uRippleFrequency.value = s.rippleFrequency;
-      shaderRef.current.uniforms.uLiquidWaveSpeed.value = s.waveSpeed;
-      shaderRef.current.uniforms.uSealedEdges.value     = s.sealedEdges ? 1 : 0;
-      shaderRef.current.uniforms.uMagneticDrag.value    = s.magneticDrag;
-      shaderRef.current.uniforms.uMagneticSwirl.value   = s.magneticSwirl;
-      shaderRef.current.uniforms.uMagneticDepth.value   = s.magneticDepth;
-      shaderRef.current.uniforms.uGlitchIntensity.value = s.uGlitchIntensity;
-      shaderRef.current.uniforms.uIsDragging.value      = isDragging ? 1 : 0;
-      shaderRef.current.uniforms.uThinning.value        = 0.5;
-
-      // Update springTime first so shockwave can read the current post-release value
-      if (isDragging) {
-        shaderRef.current.uniforms.uSpringTime.value = 0;
-      } else if (wasDraggingRef.current || shaderRef.current.uniforms.uSpringTime.value < 2.0) {
-        shaderRef.current.uniforms.uSpringTime.value += delta;
-      }
-
-      // Shockwave pulse: quick rise, decays to zero over ~0.4 s after release
-      const springTime = shaderRef.current.uniforms.uSpringTime.value;
-      const shockwaveAmp  = !isDragging && springTime < 0.55
-        ? 0.10 * Math.exp(-springTime * 7.5) * releaseStrengthRef.current
-        : 0;
-      const shockwaveFreq = shockwaveAmp > 0.005 ? 1.4 : 0;
-
-      shaderRef.current.uniforms.uWaveAmplitude.value   = s.uWaveAmplitude + routeWaveAmplitude + shockwaveAmp;
-      shaderRef.current.uniforms.uWaveFrequency.value   = s.uWaveFrequency + routeWaveFrequency + shockwaveFreq;
-      shaderRef.current.uniforms.uWaveSpeed.value       = s.uWaveSpeed + routeWaveSpeed;
-
-      wasDraggingRef.current = isDragging;
-    }
+    // Continuous slow roll — the möbius twist travels around the loop.
+    const roll = reducedMotion ? 0.05 : 0.5;
+    mesh.rotation.z += roll * d;
   });
-
-  return (
-    <group
-      ref={groupRef}
-      position={initialPosition}
-      rotation={initialRotation}
-      scale={initialScale}
-    >
-      <group ref={meshGroupRef}>
-        <mesh ref={meshRef} geometry={geometry}>
-          <meshPhysicalMaterial
-            ref={materialRef}
-            wireframe={wireframe}
-            flatShading={false}
-            transmission={transmission}
-            ior={1.1}
-            roughness={roughness}
-            thickness={thickness}
-            metalness={metalness}
-            emissive={MOBIUS_BASE_COLOR}
-            emissiveIntensity={emissiveIntensity}
-            color={MOBIUS_BASE_COLOR}
-            opacity={1}
-            transparent
-            side={THREE.DoubleSide}
-            envMapIntensity={0.22}
-            dithering
-            clearcoat={0}
-            clearcoatRoughness={0}
-            reflectivity={0.42}
-            onBeforeCompile={onBeforeCompile}
-            customProgramCacheKey={() => 'mobius-deform-v2-smooth'}
-          />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-// ── Scene ────────────────────────────────────────────────────────────────────
-
-export function MobiusScene({
-  mouseRef,
-  lerpDurationRef,
-  dragStateRef,
-  interactionBoundsRef,
-  navScaleMultiplier = 1,
-  isCoarsePointer = false,
-  performanceTierOverride,
-}: {
-  mouseRef: MouseRef;
-  lerpDurationRef: LerpDurationRef;
-  dragStateRef: DragStateRef;
-  interactionBoundsRef: InteractionBoundsRef;
-  navScaleMultiplier?: number;
-  isCoarsePointer?: boolean;
-  performanceTierOverride?: PerformanceTier;
-}) {
-  const bloomIntensity = useMobiusStore((s) => s.bloomIntensity);
-  const bloomThreshold = useMobiusStore((s) => s.bloomThreshold);
-  const noiseOpacity = useMobiusStore((s) => s.noiseOpacity);
-  const vignetteIntensity = useMobiusStore((s) => s.vignetteIntensity);
-  const storePerformanceTier = useMobiusStore((s) => s.performanceTier);
-  const reducedMotion = useMobiusStore((s) => s.reducedMotion);
-  const routeSplashActive = useMobiusStore((s) => s.routeSplashActive);
-  const routeSplashStartedAt = useMobiusStore((s) => s.routeSplashStartedAt);
-  const routeSplashDurationMs = useMobiusStore((s) => s.routeSplashDurationMs);
-  const clearRouteSplash = useMobiusStore((s) => s.clearRouteSplash);
-  const [routeSplashDecay, setRouteSplashDecay] = useState(0);
-  const performanceTier = performanceTierOverride ?? storePerformanceTier;
-
-  const effectiveBloom = reducedMotion ? 0 : bloomIntensity;
-  const effectiveNoise = reducedMotion ? 0 : noiseOpacity;
-  const splashDecay = reducedMotion ? 0 : routeSplashDecay;
-  const tunedBloomIntensity = effectiveBloom * 0.7;
-  const tunedBloomThreshold = Math.max(0.18, bloomThreshold);
-  const shouldRenderBloom = performanceTier === 'high' && tunedBloomIntensity > 0;
-  const shouldRenderNoise = performanceTier === 'high'
-    && !reducedMotion
-    && (effectiveNoise > 0 || vignetteIntensity > 0);
-  const shouldRenderComposer = shouldRenderBloom || shouldRenderNoise;
-
-  useEffect(() => {
-    if (!routeSplashActive || routeSplashDurationMs <= 0 || reducedMotion) {
-      setRouteSplashDecay(0);
-      return;
-    }
-
-    let rafId = 0;
-
-    const tick = () => {
-      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      const progress = Math.min(1, (now - routeSplashStartedAt) / routeSplashDurationMs);
-      const decay = Math.max(0, 1 - progress);
-      setRouteSplashDecay(decay * decay);
-
-      if (progress >= 1) {
-        clearRouteSplash();
-        return;
-      }
-
-      rafId = requestAnimationFrame(tick);
-    };
-
-    tick();
-
-    return () => {
-      cancelAnimationFrame(rafId);
-    };
-  }, [clearRouteSplash, reducedMotion, routeSplashActive, routeSplashDurationMs, routeSplashStartedAt]);
 
   return (
     <>
-      {/* Soft studio reflections on the clay. The HDR is fetched at runtime;
-          if it ever fails to load, MobiusErrorBoundary keeps the page intact. */}
-      <Environment preset="studio" environmentIntensity={0.4} frames={1} />
-      <ambientLight intensity={0.1} />
-      <directionalLight position={[5, 5, -2]} intensity={3} />
-      <MobiusMesh
-        mouseRef={mouseRef}
-        lerpDurationRef={lerpDurationRef}
-        routeTransitionDecay={splashDecay}
-        dragStateRef={dragStateRef}
-        interactionBoundsRef={interactionBoundsRef}
-        navScaleMultiplier={navScaleMultiplier}
-        isCoarsePointer={isCoarsePointer}
-        performanceTier={performanceTier}
-      />
-      {shouldRenderComposer && (
-        <EffectComposer>
-          {shouldRenderBloom ? (
-            <Bloom
-              luminanceThreshold={tunedBloomThreshold}
-              intensity={tunedBloomIntensity}
-              blendFunction={BlendFunction.ADD}
-            />
-          ) : (
-            <></>
-          )}
-          {shouldRenderNoise && effectiveNoise > 0 ? (
-            <Noise opacity={effectiveNoise} blendFunction={BlendFunction.OVERLAY} />
-          ) : (
-            <></>
-          )}
-          {shouldRenderNoise && vignetteIntensity > 0 ? (
-            <Vignette offset={0.3} darkness={vignetteIntensity} blendFunction={BlendFunction.NORMAL} />
-          ) : (
-            <></>
-          )}
-        </EffectComposer>
-      )}
+      {/* Matte clay lighting — no env map, renders on every GPU. */}
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[4, 5, 3]} intensity={1.5} />
+      <directionalLight position={[-5, 1, 2]} intensity={0.55} />
+      <directionalLight position={[0, -2, -4]} intensity={0.5} />
+
+      <group ref={groupRef} scale={0}>
+        <mesh ref={meshRef} geometry={geometry}>
+          <meshStandardMaterial
+            ref={materialRef}
+            color={color}
+            emissive={color}
+            emissiveIntensity={0.12}
+            roughness={0.7}
+            metalness={0.0}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      </group>
     </>
   );
 }

@@ -30,8 +30,7 @@ npm run typecheck
 | Theme tokens, type ramp, layout | `app/globals.css` |
 | Page composition | `app/page.tsx` + `components/*` |
 | Möbius (Canvas wrapper) | `components/mobius/Mobius.tsx` |
-| Möbius scene / shaders | `components/mobius/MobiusScene.tsx` |
-| Möbius parameters (size, color, motion) | `components/mobius/mobiusStore.ts` |
+| Möbius scene, geometry & motion | `components/mobius/MobiusScene.tsx` |
 
 ### Editing content
 
@@ -40,12 +39,15 @@ array (title, blurb, kind, year, href, optional `cover` image in `/public`).
 
 ### Tuning the möbius
 
-`components/mobius/mobiusStore.ts` holds the defaults. The most useful knobs:
+The scene is a lean R3F component — a real möbius strip baked into a
+`BufferGeometry` (no runtime shader, transmission pass, or post-processing).
+The constants at the top of `components/mobius/MobiusScene.tsx` are the knobs:
 
-- `scale` / `layoutScale` — overall size in the hero
-- `color` — overwritten at runtime from the `--mobius-color` CSS var (flips
-  with the theme; edit those vars in `app/globals.css`)
-- `rollSpeed`, `mouseInfluence`, `magneticLag` — motion feel
+- `LOOP_RADIUS` / `BAND_WIDTH` — proportions of the ribbon
+- `U_SEGMENTS` / `V_SEGMENTS` — tessellation (raise for smoother, lower for lighter)
+- `BASE_TILT_X` — the resting 3/4 view angle
+- `roll` (in `useFrame`) — spin speed; `0.16`/`0.3` factors — cursor tilt response
 
-The möbius is anchored to the hero via `[data-mobius-anchor="hero"]`. Grab-to-
-stretch is available but disabled by default (`allowGrab` on `<Mobius />`).
+Color comes from the `--mobius-color` CSS var (flips with the theme; edit those
+vars in `app/globals.css`). The möbius auto-fits and anchors to the hero band
+via `[data-mobius-anchor="hero"]`.
