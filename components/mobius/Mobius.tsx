@@ -15,12 +15,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { MobiusScene } from './MobiusScene';
 import { MOBIUS_BASE_COLOR } from './tokens';
+import { DEFAULT_MOBIUS_CONFIG, type MobiusConfig } from './mobiusConfig';
 
 function readCssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-export function Mobius() {
+export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConfig }) {
   const mouseRef = useRef({ x: 0, y: 0 });
   const [color, setColor] = useState(MOBIUS_BASE_COLOR);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -69,7 +70,7 @@ export function Mobius() {
       dpr={[1, 1.8]}
       style={{ width: '100%', height: '100%', background: 'transparent', pointerEvents: 'none' }}
     >
-      <MobiusScene mouseRef={mouseRef} color={color} reducedMotion={reducedMotion} />
+      <MobiusScene mouseRef={mouseRef} color={color} reducedMotion={reducedMotion} config={config} />
     </Canvas>
   );
 }
