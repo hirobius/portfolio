@@ -21,37 +21,55 @@ type Props = {
 
 const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 
-// Möbius strip geometry parameters.
-const LOOP_RADIUS = 1;
-const BAND_WIDTH = 0.62;
-const U_SEGMENTS = 240; // around the loop
-const V_SEGMENTS = 14; // across the band
-const OUTER_DIAMETER = 2 * (LOOP_RADIUS + BAND_WIDTH / 2);
+// Faceted möbius-tube geometry — a 6-sided (hexagonal) cross-section swept
+// along a circular path with a half-twist. This gives the chunky clay volume
+// of the original (radialSegments 6, tubeRadius 0.325, pathRadius 0.67).
+const PATH_RADIUS = 0.67; // radius of the loop
+const TUBE_RADIUS = 0.325; // radius of the hexagonal cross-section
+const RADIAL_SEGMENTS = 6; // 6-sided faceted tube
+const TUBULAR_SEGMENTS = 300; // segments around the loop
+const OUTER_DIAMETER = 2 * (PATH_RADIUS + TUBE_RADIUS);
 
 const BASE_TILT_X = -0.62; // look down into the loop for a 3/4 view
 
-/** Classic parametric möbius strip baked into a BufferGeometry. */
-function buildMobiusStrip(): THREE.BufferGeometry {
+/**
+ * Faceted möbius tube baked into a BufferGeometry. A regular hexagon is swept
+ * around the loop while rotating a half-turn (π) — a hexagon is symmetric under
+ * 180°, so the surface closes seamlessly into a proper one-sided möbius tube.
+ */
+function buildMobiusTube(): THREE.BufferGeometry {
   const positions: number[] = [];
   const indices: number[] = [];
+  const sides = RADIAL_SEGMENTS;
+  const rings = TUBULAR_SEGMENTS;
 
-  for (let i = 0; i <= U_SEGMENTS; i++) {
-    const u = (i / U_SEGMENTS) * Math.PI * 2;
+  for (let i = 0; i <= rings; i++) {
+    const u = (i / rings) * Math.PI * 2;
     const cosU = Math.cos(u);
     const sinU = Math.sin(u);
-    const cosHalf = Math.cos(u / 2);
-    const sinHalf = Math.sin(u / 2);
-    for (let j = 0; j <= V_SEGMENTS; j++) {
-      const v = (j / V_SEGMENTS - 0.5) * BAND_WIDTH;
-      const radial = LOOP_RADIUS + v * cosHalf;
-      positions.push(radial * cosU, radial * sinU, v * sinHalf);
+    // Cross-section center on the path, and an orthonormal frame for its plane:
+    // N = radial (in-plane), B = z-up. Both are perpendicular to the tangent.
+    const cx = PATH_RADIUS * cosU;
+    const cy = PATH_RADIUS * sinU;
+    const twist = u * 0.5; // half-twist over one loop => möbius
+
+    for (let k = 0; k <= sides; k++) {
+      const theta = (k / sides) * Math.PI * 2 + twist;
+      const ct = Math.cos(theta);
+      const st = Math.sin(theta);
+      // vertex = C + r*(ct*N + st*B), with N = (cosU, sinU, 0), B = (0, 0, 1)
+      positions.push(
+        cx + TUBE_RADIUS * ct * cosU,
+        cy + TUBE_RADIUS * ct * sinU,
+        TUBE_RADIUS * st,
+      );
     }
   }
 
-  const row = V_SEGMENTS + 1;
-  for (let i = 0; i < U_SEGMENTS; i++) {
-    for (let j = 0; j < V_SEGMENTS; j++) {
-      const a = i * row + j;
+  const row = sides + 1;
+  for (let i = 0; i < rings; i++) {
+    for (let k = 0; k < sides; k++) {
+      const a = i * row + k;
       const b = a + row;
       const c = a + 1;
       const d = b + 1;
@@ -71,7 +89,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
 
-  const geometry = useMemo(buildMobiusStrip, []);
+  const geometry = useMemo(buildMobiusTube, []);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   // Color lerp targets.
@@ -187,6 +205,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
             emissiveIntensity={0.12}
             roughness={0.7}
             metalness={0.0}
+            flatShading
             side={THREE.DoubleSide}
           />
         </mesh>
