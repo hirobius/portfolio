@@ -26,10 +26,12 @@ const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 // shaped into a leaning "A".
 const PATH_RADIUS = 0.6; // overall scale of the triangle
 const TRI_AMOUNT = 0.2; // deltoid roundness: 0 = circle, ~0.3 = sharper triangular corners
-const TUBE_RADIUS = 0.24; // radius of the faceted cross-section
-const RADIAL_SEGMENTS = 6; // 6-sided faceted cross-section (the "hex" tube)
-const TUBULAR_SEGMENTS = 300; // segments along the loop
-const TWIST_TURNS = 3.5; // the cross-section rotates this many turns along the path (möbius-style twist)
+const TUBE_RADIUS = 0.24; // base radius of the cross-section
+const FLUTE_COUNT = 6; // sculpted ridges around the cross-section
+const FLUTE_DEPTH = 0.32; // how deep the valleys sink between the ridges
+const RADIAL_SEGMENTS = 96; // smooth rounded ridges (a multiple of FLUTE_COUNT)
+const TUBULAR_SEGMENTS = 400; // segments along the loop
+const TWIST_TURNS = 1.5; // gentle twist of the cross-section along the path (was 3.5)
 
 const BASE_TILT_X = -0.34; // forward lean so the triangle reads like a tilted "A"
 
@@ -90,16 +92,18 @@ function buildMobiusTube(): THREE.BufferGeometry {
     const cy = cys[i];
     const nx = nxs[i];
     const ny = nys[i];
-    // The cross-section is rotated by `twist` (which grows with arc length), so
-    // the faceted hexagon turns on the tube's own axis as it travels the loop —
-    // the facet edges spiral. That rotation IS the möbius-style twist.
+    // The sculpted cross-section is rotated by `twist` (growing with arc length),
+    // so the ridges turn on the tube's own axis as it travels the loop and spiral
+    // gently end-to-end — the möbius-style twist.
     const twist = totalTwist * (arc[i] / totalArc);
     for (let k = 0; k <= sides; k++) {
       const theta = (k / sides) * Math.PI * 2 + twist;
       const ct = Math.cos(theta);
       const st = Math.sin(theta);
+      // Sculpted cross-section: rounded ridges with valleys sunk between them.
+      const r = TUBE_RADIUS * (1 + FLUTE_DEPTH * Math.cos(FLUTE_COUNT * theta));
       // vertex = C + r·(ct·N + st·B), with B = (0, 0, 1)
-      positions.push(cx + TUBE_RADIUS * ct * nx, cy + TUBE_RADIUS * ct * ny, TUBE_RADIUS * st);
+      positions.push(cx + r * ct * nx, cy + r * ct * ny, r * st);
     }
   }
 
@@ -234,24 +238,23 @@ export function MobiusScene({ mouseRef, color, reducedMotion }: Props) {
 
   return (
     <>
-      {/* Key + fills so the spiralling facets each catch light distinctly. */}
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[-3, 4, 5]} intensity={1.9} />
+      {/* Key + low ambient so the sculpted valleys shadow and the ridges read. */}
+      <ambientLight intensity={0.33} />
+      <directionalLight position={[-3, 4, 5]} intensity={2.1} />
       <directionalLight position={[5, 2, 2]} intensity={0.5} />
-      <directionalLight position={[1, -4, 1]} intensity={0.3} />
+      <directionalLight position={[1, -4, 1]} intensity={0.28} />
 
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry}>
-          {/* flatShading gives the faceted hex read; the facets spiral with the
-              twist. Matte clay. */}
+          {/* Smooth shading so the ridges read as rounded and the valleys as
+              sunken; the sculpted ridges spiral with the twist. Matte clay. */}
           <meshStandardMaterial
             ref={materialRef}
             color={color}
             emissive={color}
             emissiveIntensity={0.06}
-            roughness={0.55}
+            roughness={0.48}
             metalness={0.0}
-            flatShading
             side={THREE.DoubleSide}
           />
         </mesh>
