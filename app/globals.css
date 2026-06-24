@@ -52,9 +52,9 @@ svg {
   --mobius-color: #3a4fe6;
   --mobius-bg: #eee8df;
 
-  /* Satoshi everywhere (loaded in the root layout from Fontshare). */
-  --font-display: 'Satoshi', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-sans: 'Satoshi', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Satoshi everywhere — self-hosted via next/font/local (see app/layout). */
+  --font-display: var(--font-satoshi), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: var(--font-satoshi), system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --container: 1180px;
   --pad-inline: clamp(1.25rem, 5vw, 4rem);

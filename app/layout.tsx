@@ -1,7 +1,20 @@
 import type { Metadata } from 'next';
+import localFont from 'next/font/local';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { site } from '@/lib/content';
 import './globals.css';
+
+// Satoshi, self-hosted (Fontshare kit). One variable woff2 covers weights
+// 300–900; Next fingerprints + preloads it and generates a size-adjusted
+// fallback to avoid layout shift. Exposed as the --font-satoshi CSS var.
+const satoshi = localFont({
+  src: [
+    { path: './fonts/Satoshi-Variable.woff2', weight: '300 900', style: 'normal' },
+    { path: './fonts/Satoshi-VariableItalic.woff2', weight: '300 900', style: 'italic' },
+  ],
+  variable: '--font-satoshi',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: `${site.name} — ${site.role}`,
@@ -11,20 +24,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={satoshi.variable}>
       <head>
         {/* Marks JS as active before first paint so the text-reveal can hide
             itself only for JS users (no-JS keeps the text visible). */}
         <script
           dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }}
-        />
-        {/* Satoshi (Fontshare) — the variable family is served as a single woff2,
-            so any weight 300–900 (including the hero's extra-bold) is available. */}
-        <link rel="preconnect" href="https://api.fontshare.com" />
-        <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,800,900&display=swap"
         />
       </head>
       <body>
