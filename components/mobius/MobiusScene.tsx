@@ -15,8 +15,9 @@
  */
 
 import { useMemo, useRef, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { MobiusConfig } from './mobiusConfig';
 
 type Props = {
@@ -161,25 +162,54 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
     return (geometry.boundingSphere?.radius ?? 1) * 2;
   }, [geometry]);
 
-  // The roll uniform — mutated each frame; shared with the compiled shader.
-  const phase = useRef({ value: 0 });
+  // Procedural room environment (no network) so the glass has something to
+  // reflect/refract — without it, transmission reads as a flat tint.
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const envTexture = useMemo(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const tex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    return tex;
+  }, [gl]);
+  useEffect(() => {
+    scene.environment = envTexture;
+    return () => {
+      if (scene.environment === envTexture) scene.environment = null;
+      envTexture.dispose();
+    };
+  }, [scene, envTexture]);
 
-  // Material with the in-place "roll" shader.
+  // Shader uniforms — mutated on config change / each frame; shared with the
+  // compiled shader (roll phase + gradient core).
+  const phase = useRef({ value: 0 });
+  const uColorB = useRef({ value: new THREE.Color('#a070ff') });
+  const uUseGradient = useRef({ value: 0 });
+  const uGradScale = useRef({ value: 0.7 });
+  const uGradOffset = useRef({ value: 0.5 });
+
+  // Frosted-acrylic glass material with the in-place "roll" shader plus a
+  // gradient core blended along the loop height.
   const material = useMemo(() => {
-    const m = new THREE.MeshStandardMaterial({
+    const m = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(color),
       emissive: new THREE.Color(color),
       side: THREE.DoubleSide,
     });
     m.onBeforeCompile = (shader) => {
       shader.uniforms.uPhase = phase.current;
+      shader.uniforms.uColorB = uColorB.current;
+      shader.uniforms.uUseGradient = uUseGradient.current;
+      shader.uniforms.uGradScale = uGradScale.current;
+      shader.uniforms.uGradOffset = uGradOffset.current;
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
           `#include <common>
-          uniform float uPhase;
+          uniform float uPhase, uGradScale, uGradOffset;
           attribute vec2 aCenter;
           attribute vec2 aAxis;
+          varying float vGrad;
           vec3 mobiusRoll(vec3 v, vec3 ax, float ang) {
             float c = cos(ang); float s = sin(ang);
             return v * c + cross(ax, v) * s + ax * dot(ax, v) * (1.0 - c);
@@ -196,7 +226,21 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
         .replace(
           '#include <begin_vertex>',
           `vec3 mCenter = vec3(aCenter, 0.0);
-          vec3 transformed = mCenter + mobiusRoll(position - mCenter, normalize(vec3(aAxis, 0.0)), uPhase);`,
+          vec3 transformed = mCenter + mobiusRoll(position - mCenter, normalize(vec3(aAxis, 0.0)), uPhase);
+          vGrad = clamp(aCenter.y * uGradScale + uGradOffset, 0.0, 1.0);`,
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          uniform vec3 uColorB;
+          uniform float uUseGradient;
+          varying float vGrad;`,
+        )
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+          diffuseColor.rgb = mix(diffuseColor.rgb, uColorB, vGrad * uUseGradient);`,
         );
     };
     return m;
@@ -214,6 +258,16 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   material.roughness = config.roughness;
   material.metalness = config.metalness;
   material.emissiveIntensity = config.emissiveIntensity;
+  material.transmission = config.transmission;
+  material.thickness = config.thickness;
+  material.ior = config.ior;
+  material.iridescence = config.iridescence;
+  material.envMapIntensity = config.envIntensity;
+  material.attenuationDistance = config.attenuationDistance > 0 ? config.attenuationDistance : Infinity;
+  uColorB.current.value.setHSL(config.hueB / 360, config.satB, config.lightB);
+  uUseGradient.current.value = config.useGradient ? 1 : 0;
+  uGradScale.current.value = config.gradientScale;
+  uGradOffset.current.value = config.gradientOffset;
 
   // Color lerp targets.
   const currentColor = useRef(new THREE.Color(color));
@@ -237,9 +291,11 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
     const vw = Math.max(state.size.width, 1);
     const vh = Math.max(state.size.height, 1);
 
-    // Color
+    // Color — clear glass: a white surface, with the theme color carried as the
+    // transmission tint (light through the glass picks it up) + a faint glow.
     currentColor.current.lerp(targetColor.current, 1 - Math.exp(-d / 0.2));
-    material.color.copy(currentColor.current);
+    material.color.setRGB(1, 1, 1);
+    material.attenuationColor.copy(currentColor.current);
     material.emissive.copy(currentColor.current);
 
     // Roll — advance the cross-section phase (surface flows in place)
@@ -325,6 +381,9 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
 
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry} material={material} />
+        {config.innerEnabled && (
+          <mesh geometry={geometry} material={material} scale={config.innerScale} />
+        )}
       </group>
     </>
   );

@@ -4,42 +4,62 @@
  */
 export type MobiusConfig = {
   // Geometry (changing these rebuilds the BufferGeometry)
-  pathRadius: number; // overall scale of the triangle loop
-  triAmount: number; // triangularity: 0 = circle, higher = sharper corners
-  tubeRadius: number; // base thickness of the tube
-  fluteCount: number; // number of sculpted ridges around the tube
-  fluteDepth: number; // how deep the flute valleys are
-  radialSegments: number; // tessellation around the tube (smoothness of ridges)
-  tubularSegments: number; // tessellation along the loop
-  twistTurns: number; // how many turns the cross-section makes along the loop
+  pathRadius: number;
+  triAmount: number;
+  tubeRadius: number;
+  fluteCount: number;
+  fluteDepth: number;
+  radialSegments: number;
+  tubularSegments: number;
+  twistTurns: number;
 
   // Motion
-  rollSpeed: number; // radians/sec the surface flows ("roll")
-  autoRotateX: number; // continuous whole-shape spin (rad/sec)
+  rollSpeed: number;
+  autoRotateX: number;
   autoRotateY: number;
   autoRotateZ: number;
-  baseTiltX: number; // resting forward tilt
-  baseTiltY: number; // resting horizontal turn
+  baseTiltX: number;
+  baseTiltY: number;
 
   // Material
-  flatShading: boolean; // faceted vs smooth
+  flatShading: boolean;
   roughness: number;
   metalness: number;
-  emissiveIntensity: number; // self-lit floor so shadows don't go black
+  emissiveIntensity: number;
 
-  // Color (override the theme color when useCustomColor is on)
+  // Acrylic / glass
+  transmission: number; // 0 = opaque, 1 = full glass (frosted by roughness)
+  thickness: number; // refraction depth
+  ior: number; // index of refraction
+  iridescence: number; // soft oily sheen on the glass
+  envIntensity: number; // strength of the reflected environment (glass sparkle)
+  attenuationDistance: number; // how strongly the color tints light through the glass (lower = stronger)
+
+  // Color
   useCustomColor: boolean;
-  hue: number; // 0–360
-  saturation: number; // 0–1
-  lightness: number; // 0–1
+  hue: number;
+  saturation: number;
+  lightness: number;
+
+  // Gradient core (blend the base color toward a second color along the height)
+  useGradient: boolean;
+  hueB: number;
+  satB: number;
+  lightB: number;
+  gradientScale: number;
+  gradientOffset: number;
+
+  // Nested inner triangle
+  innerEnabled: boolean;
+  innerScale: number; // size of the inner möbius relative to the outer
 
   // Lighting
   ambient: number;
   keyStrength: number;
   fillFront: number;
   fillSide: number;
-  lightAzimuth: number; // degrees around the vertical axis
-  lightElevation: number; // degrees up/down
+  lightAzimuth: number;
+  lightElevation: number;
 };
 
 export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
@@ -59,15 +79,32 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   baseTiltX: -0.34,
   baseTiltY: 0,
 
-  flatShading: true,
-  roughness: 1,
-  metalness: 0.34,
-  emissiveIntensity: 0.1,
+  flatShading: false,
+  roughness: 0.12,
+  metalness: 0,
+  emissiveIntensity: 0.04,
+
+  transmission: 1,
+  thickness: 0.6,
+  ior: 1.45,
+  iridescence: 0,
+  envIntensity: 0.9,
+  attenuationDistance: 0.6,
 
   useCustomColor: false,
   hue: 230,
   saturation: 0.85,
   lightness: 0.6,
+
+  useGradient: false,
+  hueB: 285,
+  satB: 0.8,
+  lightB: 0.62,
+  gradientScale: 0.7,
+  gradientOffset: 0.5,
+
+  innerEnabled: false,
+  innerScale: 0.55,
 
   ambient: 0.45,
   keyStrength: 1.7,

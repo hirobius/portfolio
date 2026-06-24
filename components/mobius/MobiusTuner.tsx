@@ -44,11 +44,27 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
     ],
   },
   {
-    title: 'Material',
+    title: 'Acrylic glass',
     rows: [
-      ['roughness', 'Roughness', 0, 1, 0.02],
-      ['metalness', 'Metalness', 0, 0.6, 0.02],
-      ['emissiveIntensity', 'Emissive', 0, 0.3, 0.01],
+      ['transmission', 'Transmission', 0, 1, 0.02],
+      ['roughness', 'Roughness (frost)', 0, 1, 0.02],
+      ['thickness', 'Thickness', 0, 2, 0.05],
+      ['ior', 'IOR (refraction)', 1, 2.33, 0.01],
+      ['attenuationDistance', 'Tint depth (low=strong)', 0, 2, 0.02],
+      ['iridescence', 'Iridescence', 0, 1, 0.02],
+      ['envIntensity', 'Reflections', 0, 2, 0.05],
+      ['metalness', 'Metalness', 0, 1, 0.02],
+      ['emissiveIntensity', 'Inner glow', 0, 0.3, 0.01],
+    ],
+  },
+  {
+    title: 'Gradient core',
+    rows: [
+      ['hueB', 'Color B — hue', 0, 360, 1],
+      ['satB', 'Color B — saturation', 0, 1, 0.01],
+      ['lightB', 'Color B — lightness', 0, 1, 0.01],
+      ['gradientScale', 'Gradient scale', 0, 3, 0.02],
+      ['gradientOffset', 'Gradient offset', -1, 2, 0.02],
     ],
   },
   {
@@ -58,6 +74,10 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
       ['saturation', 'Saturation', 0, 1, 0.01],
       ['lightness', 'Lightness', 0, 1, 0.01],
     ],
+  },
+  {
+    title: 'Inner shape',
+    rows: [['innerScale', 'Inner size', 0.2, 0.9, 0.02]],
   },
   {
     title: 'Lighting',
@@ -127,7 +147,7 @@ export function MobiusTuner({
             <div key={section.title}>
               <div className="mbx-sec">{section.title}</div>
 
-              {section.title === 'Material' && (
+              {section.title === 'Acrylic glass' && (
                 <div className="mbx-toggle">
                   <button
                     className={'mbx-tbtn' + (!config.flatShading ? ' on' : '')}
@@ -140,6 +160,40 @@ export function MobiusTuner({
                     onClick={() => set('flatShading', true)}
                   >
                     Faceted
+                  </button>
+                </div>
+              )}
+
+              {section.title === 'Gradient core' && (
+                <div className="mbx-toggle">
+                  <button
+                    className={'mbx-tbtn' + (!config.useGradient ? ' on' : '')}
+                    onClick={() => set('useGradient', false)}
+                  >
+                    Off
+                  </button>
+                  <button
+                    className={'mbx-tbtn' + (config.useGradient ? ' on' : '')}
+                    onClick={() => set('useGradient', true)}
+                  >
+                    Gradient on
+                  </button>
+                </div>
+              )}
+
+              {section.title === 'Inner shape' && (
+                <div className="mbx-toggle">
+                  <button
+                    className={'mbx-tbtn' + (!config.innerEnabled ? ' on' : '')}
+                    onClick={() => set('innerEnabled', false)}
+                  >
+                    Off
+                  </button>
+                  <button
+                    className={'mbx-tbtn' + (config.innerEnabled ? ' on' : '')}
+                    onClick={() => set('innerEnabled', true)}
+                  >
+                    Inner on
                   </button>
                 </div>
               )}
