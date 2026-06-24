@@ -193,9 +193,22 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   const invalidate = useThree((s) => s.invalidate);
+  const camera = useThree((s) => s.camera);
 
-  // Entrance progress (0..1) + a flag for when it's finished. Kept here so the
-  // throttle loop below can render the animate-in at full refresh.
+  // Pre-compile the materials so the first visible frame doesn't hitch on shader
+  // compilation while the fade plays.
+  useEffect(() => {
+    try {
+      gl.compile(scene, camera);
+    } catch {
+      /* ignore */
+    }
+  }, [gl, scene, camera]);
+
+  // Entrance: a few warm-up frames (invisible) to absorb the first-render hitch,
+  // then an opacity fade. `entranceDoneRef` lets the throttle loop run the fade
+  // at full refresh; the scale is held fixed so it's a pure fade, not a grow.
+  const warmupRef = useRef(0);
   const entranceRef = useRef(0);
   const entranceDoneRef = useRef(false);
 
@@ -425,11 +438,29 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     // Roll — advance the cross-section phase (surface flows in place)
     phase.current.value += (reducedMotion ? cfg.rollSpeed * 0.3 : cfg.rollSpeed) * d;
 
-    // Entrance — advance by clamped delta (so a slow first frame / shader compile
-    // can't make it jump), then ease. Render runs at full refresh until it's done.
-    entranceRef.current = Math.min(1, entranceRef.current + d / 0.8);
-    const entrance = 1 - Math.pow(1 - entranceRef.current, 3);
+    // Entrance — hold invisible for a few warm-up frames (the shader compile /
+    // transmission-target build happen here, not during the visible fade), then
+    // fade by clamped delta so a slow frame can't make it jump.
+    warmupRef.current += 1;
+    if (warmupRef.current > 4) {
+      entranceRef.current = Math.min(1, entranceRef.current + d / 0.45);
+    }
+    const entrance = entranceRef.current <= 0 ? 0 : 1 - Math.pow(1 - entranceRef.current, 2);
     if (entranceRef.current >= 1) entranceDoneRef.current = true;
+
+    // Entrance fade — opacity 0 -> 1. Force transparent while fading, then snap
+    // back to the steady-state opacity once the fade is done.
+    if (entrance < 1) {
+      material.transparent = true;
+      material.opacity = cfg.glassOpacity * entrance;
+      innerMaterial.transparent = true;
+      innerMaterial.opacity = entrance;
+    } else {
+      material.transparent = cfg.glassOpacity < 0.999;
+      material.opacity = cfg.glassOpacity;
+      innerMaterial.transparent = false;
+      innerMaterial.opacity = 1;
+    }
 
     // ── Fit: measured only when flagged (mount / resize / geometry change), so
     //    nothing rescales or shifts during a scroll. The canvas scrolls with the
@@ -474,10 +505,9 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     group.position.x += (posX - group.position.x) * lerp;
     group.position.y += (posY - group.position.y) * lerp;
 
-    const scaleTarget = fitRef.current.scale * entrance;
-    group.scale.x += (scaleTarget - group.scale.x) * lerp;
-    group.scale.y += (scaleTarget - group.scale.y) * lerp;
-    group.scale.z += (scaleTarget - group.scale.z) * lerp;
+    // Scale is fixed at the fit size immediately — the entrance is a pure
+    // opacity fade, so the shape never grows on screen.
+    group.scale.setScalar(fitRef.current.scale);
 
     const tiltX = cfg.baseTiltX + -my * 0.16;
     const tiltY = cfg.baseTiltY + mx * 0.3;
