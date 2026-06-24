@@ -194,16 +194,22 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   const scene = useThree((s) => s.scene);
   const invalidate = useThree((s) => s.invalidate);
 
-  // Drive the demand-mode loop ourselves at a capped frame rate. The rAF tick is
-  // cheap (a timestamp check); it only triggers an actual render every ~1/38s.
-  // When the hero scrolls offscreen, `active` is false and we render nothing.
+  // Entrance progress (0..1) + a flag for when it's finished. Kept here so the
+  // throttle loop below can render the animate-in at full refresh.
+  const entranceRef = useRef(0);
+  const entranceDoneRef = useRef(false);
+
+  // Drive the demand-mode loop ourselves. During the brief entrance we render at
+  // full refresh so the animate-in is smooth; afterward we cap to TARGET_FPS to
+  // keep scrolling cheap. The rAF tick itself is just a timestamp check. When the
+  // hero scrolls offscreen, `active` is false and we render nothing.
   useEffect(() => {
     if (!active) return;
     let raf = 0;
     let last = 0;
-    const minInterval = 1000 / TARGET_FPS;
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
+      const minInterval = entranceDoneRef.current ? 1000 / TARGET_FPS : 0;
       if (now - last >= minInterval) {
         last = now;
         invalidate();
@@ -371,7 +377,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   }, [color]);
 
   const anchorRef = useRef<HTMLElement | null>(null);
-  const entranceStartRef = useRef<number | null>(null);
   const scratchVec = useRef(new THREE.Vector3());
   const scratchDir = useRef(new THREE.Vector3());
 
@@ -420,10 +425,11 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     // Roll — advance the cross-section phase (surface flows in place)
     phase.current.value += (reducedMotion ? cfg.rollSpeed * 0.3 : cfg.rollSpeed) * d;
 
-    // Entrance
-    if (entranceStartRef.current === null) entranceStartRef.current = state.clock.elapsedTime;
-    const elapsed = state.clock.elapsedTime - entranceStartRef.current;
-    const entrance = 1 - Math.pow(1 - Math.min(1, elapsed / 0.7), 3);
+    // Entrance — advance by clamped delta (so a slow first frame / shader compile
+    // can't make it jump), then ease. Render runs at full refresh until it's done.
+    entranceRef.current = Math.min(1, entranceRef.current + d / 0.8);
+    const entrance = 1 - Math.pow(1 - entranceRef.current, 3);
+    if (entranceRef.current >= 1) entranceDoneRef.current = true;
 
     // ── Fit: measured only when flagged (mount / resize / geometry change), so
     //    nothing rescales or shifts during a scroll. The canvas scrolls with the

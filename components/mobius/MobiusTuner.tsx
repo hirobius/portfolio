@@ -114,7 +114,8 @@ export function MobiusTuner({
   config: MobiusConfig;
   onChange: (next: MobiusConfig) => void;
 }) {
-  const [open, setOpen] = useState(true);
+  // Hidden by default — ?tune shows just the ⚙ FAB; click it to open the panel.
+  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const set = (key: keyof MobiusConfig, value: number | boolean) =>
