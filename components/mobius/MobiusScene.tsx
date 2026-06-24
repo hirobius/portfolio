@@ -439,27 +439,21 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     phase.current.value += (reducedMotion ? cfg.rollSpeed * 0.3 : cfg.rollSpeed) * d;
 
     // Entrance — hold invisible for a few warm-up frames (the shader compile /
-    // transmission-target build happen here, not during the visible fade), then
-    // fade by clamped delta so a slow frame can't make it jump.
-    warmupRef.current += 1;
-    if (warmupRef.current > 4) {
-      entranceRef.current = Math.min(1, entranceRef.current + d / 0.45);
-    }
-    const entrance = entranceRef.current <= 0 ? 0 : 1 - Math.pow(1 - entranceRef.current, 2);
-    if (entranceRef.current >= 1) entranceDoneRef.current = true;
-
-    // Entrance fade — opacity 0 -> 1. Force transparent while fading, then snap
-    // back to the steady-state opacity once the fade is done.
-    if (entrance < 1) {
-      material.transparent = true;
-      material.opacity = cfg.glassOpacity * entrance;
-      innerMaterial.transparent = true;
-      innerMaterial.opacity = entrance;
-    } else {
-      material.transparent = cfg.glassOpacity < 0.999;
-      material.opacity = cfg.glassOpacity;
-      innerMaterial.transparent = false;
-      innerMaterial.opacity = 1;
+    // transmission-target build happen here), then fade the whole CANVAS in via
+    // CSS opacity. Fading the composited image keeps the inner + outer glass on
+    // one timing and avoids the transmission-material "pop" that per-material
+    // opacity caused. Delta is clamped, so a slow frame can't make it jump.
+    if (!entranceDoneRef.current) {
+      warmupRef.current += 1;
+      if (warmupRef.current > 4) {
+        entranceRef.current = Math.min(1, entranceRef.current + d / 0.45);
+      }
+      const e = entranceRef.current <= 0 ? 0 : 1 - Math.pow(1 - entranceRef.current, 2);
+      state.gl.domElement.style.opacity = String(e);
+      if (entranceRef.current >= 1) {
+        entranceDoneRef.current = true;
+        state.gl.domElement.style.opacity = '1';
+      }
     }
 
     // ── Fit: measured only when flagged (mount / resize / geometry change), so

@@ -107,6 +107,8 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
         // win, negligible quality loss on a frosted/refractive object.
         const r = gl as unknown as { transmissionResolutionScale?: number };
         if ('transmissionResolutionScale' in r) r.transmissionResolutionScale = 0.4;
+        // Start invisible — the scene fades the canvas in after warm-up frames.
+        gl.domElement.style.opacity = '0';
       }}
       style={{ width: '100%', height: '100%', background: 'transparent', pointerEvents: 'none' }}
     >
