@@ -43,13 +43,13 @@ export type MobiusConfig = {
 
 export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   pathRadius: 0.7,
-  triAmount: 0.1,
+  triAmount: 0.065,
   tubeRadius: 0.22,
-  fluteCount: 6,
-  fluteDepth: 0.24,
-  radialSegments: 48,
-  tubularSegments: 420,
-  twistTurns: 2,
+  fluteCount: 1,
+  fluteDepth: 0.3,
+  radialSegments: 6,
+  tubularSegments: 360,
+  twistTurns: 0.5,
 
   rollSpeed: 0.5,
   autoRotateX: 0,
@@ -57,10 +57,10 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   autoRotateZ: 0,
   baseTiltX: -0.34,
 
-  flatShading: false,
-  roughness: 0.5,
-  metalness: 0,
-  emissiveIntensity: 0.06,
+  flatShading: true,
+  roughness: 1,
+  metalness: 0.34,
+  emissiveIntensity: 0.1,
 
   useCustomColor: false,
   hue: 230,
