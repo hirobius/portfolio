@@ -91,17 +91,17 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   baseTiltY: 0,
 
   flatShading: true,
-  roughness: 0.45,
+  roughness: 0.35,
   metalness: 0,
   emissiveIntensity: 0,
 
-  transmission: 0,
+  transmission: 1,
   thickness: 0.6,
-  ior: 1.45,
+  ior: 1.4,
   iridescence: 0,
   envIntensity: 0.55,
   tint: 0,
-  glassOpacity: 0.42,
+  glassOpacity: 0.7,
 
   useCustomColor: false,
   hue: 230,
