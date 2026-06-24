@@ -13,6 +13,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Marks JS as active before first paint so the text-reveal can hide
+            itself only for JS users (no-JS keeps the text visible). */}
+        <script
+          dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }}
+        />
         {/* Satoshi (Fontshare) — the variable family is served as a single woff2,
             so any weight 300–900 (including the hero's extra-bold) is available. */}
         <link rel="preconnect" href="https://api.fontshare.com" />

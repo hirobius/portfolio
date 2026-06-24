@@ -1,18 +1,26 @@
 import { hero } from '@/lib/content';
+import { RevealText } from '@/components/motion';
+import { motion } from '@/lib/motion';
 
 export function Hero() {
   return (
     <section className="hero" aria-labelledby="hero-headline">
       <h1 id="hero-headline" className="hero__headline">
-        <span className="hero__line">{hero.headlineTop}</span>
+        <RevealText className="hero__line" delay={motion.sequence.heroLineTop}>
+          {hero.headlineTop}
+        </RevealText>
 
         {/* Reserved space the möbius is anchored to (see mobiusStore layout). */}
         <span className="hero__mobius" data-mobius-anchor="hero" aria-hidden="true" />
 
-        <span className="hero__line">{hero.headlineBottom}</span>
+        <RevealText className="hero__line" delay={motion.sequence.heroLineBottom}>
+          {hero.headlineBottom}
+        </RevealText>
       </h1>
 
-      <p className="hero__tagline">{hero.tagline}</p>
+      <RevealText as="p" className="hero__tagline" delay={motion.sequence.heroTagline}>
+        {hero.tagline}
+      </RevealText>
     </section>
   );
 }

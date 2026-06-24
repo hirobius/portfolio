@@ -98,6 +98,30 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+   Text reveal (motion package — see components/motion/RevealText)
+   ───────────────────────────────────────────────────────────────────────── */
+/* Hidden before the reveal runs, but ONLY when JS is active (the head script
+   adds `.js`), so no-JS users always see the text. A 0s/3s failsafe animation
+   reveals it even if the reveal script never runs. */
+.js .reveal-armed {
+  visibility: hidden;
+  animation: reveal-failsafe 0s linear 3s forwards;
+}
+
+@keyframes reveal-failsafe {
+  to {
+    visibility: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-armed {
+    visibility: visible !important;
+    animation: none !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
    Möbius canvas layer — fixed behind the content
    ───────────────────────────────────────────────────────────────────────── */
 /* Absolute (not fixed) so the canvas scrolls with the page on the compositor —
