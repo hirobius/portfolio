@@ -58,13 +58,12 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
     ],
   },
   {
-    title: 'Gradient core',
+    title: 'Color core',
     rows: [
-      ['hueB', 'Color B — hue', 0, 360, 1],
-      ['satB', 'Color B — saturation', 0, 1, 0.01],
-      ['lightB', 'Color B — lightness', 0, 1, 0.01],
-      ['gradientScale', 'Gradient scale', 0, 3, 0.02],
-      ['gradientOffset', 'Gradient offset', -1, 2, 0.02],
+      ['hueB', 'Core — hue', 0, 360, 1],
+      ['satB', 'Core — saturation', 0, 1, 0.01],
+      ['lightB', 'Core — lightness', 0, 1, 0.01],
+      ['gradientScale', 'Core size (facing→edge)', 0.3, 6, 0.1],
     ],
   },
   {
@@ -174,7 +173,7 @@ export function MobiusTuner({
                 </div>
               )}
 
-              {section.title === 'Gradient core' && (
+              {section.title === 'Color core' && (
                 <div className="mbx-toggle">
                   <button
                     className={'mbx-tbtn' + (!config.useGradient ? ' on' : '')}
@@ -186,7 +185,7 @@ export function MobiusTuner({
                     className={'mbx-tbtn' + (config.useGradient ? ' on' : '')}
                     onClick={() => set('useGradient', true)}
                   >
-                    Gradient on
+                    Core on
                   </button>
                 </div>
               )}

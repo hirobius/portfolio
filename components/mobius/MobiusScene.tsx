@@ -206,15 +206,13 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
       shader.uniforms.uColorB = uColorB.current;
       shader.uniforms.uUseGradient = uUseGradient.current;
       shader.uniforms.uGradScale = uGradScale.current;
-      shader.uniforms.uGradOffset = uGradOffset.current;
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
           `#include <common>
-          uniform float uPhase, uGradScale, uGradOffset;
+          uniform float uPhase;
           attribute vec2 aCenter;
           attribute vec2 aAxis;
-          varying float vGrad;
           vec3 mobiusRoll(vec3 v, vec3 ax, float ang) {
             float c = cos(ang); float s = sin(ang);
             return v * c + cross(ax, v) * s + ax * dot(ax, v) * (1.0 - c);
@@ -231,21 +229,23 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
         .replace(
           '#include <begin_vertex>',
           `vec3 mCenter = vec3(aCenter, 0.0);
-          vec3 transformed = mCenter + mobiusRoll(position - mCenter, normalize(vec3(aAxis, 0.0)), uPhase);
-          vGrad = clamp(aCenter.y * uGradScale + uGradOffset, 0.0, 1.0);`,
+          vec3 transformed = mCenter + mobiusRoll(position - mCenter, normalize(vec3(aAxis, 0.0)), uPhase);`,
         );
       shader.fragmentShader = shader.fragmentShader
         .replace(
           '#include <common>',
           `#include <common>
           uniform vec3 uColorB;
-          uniform float uUseGradient;
-          varying float vGrad;`,
+          uniform float uUseGradient, uGradScale;`,
         )
         .replace(
-          '#include <color_fragment>',
-          `#include <color_fragment>
-          diffuseColor.rgb = mix(diffuseColor.rgb, uColorB, vGrad * uUseGradient);`,
+          '#include <normal_fragment_begin>',
+          `#include <normal_fragment_begin>
+          // Color core: surfaces facing the camera take the core color; it fades
+          // to clear (the white base) toward the grazing / silhouette edges.
+          float coreFade = pow(clamp(1.0 - dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), uGradScale);
+          vec3 cored = mix(uColorB, diffuseColor.rgb, coreFade);
+          diffuseColor.rgb = mix(diffuseColor.rgb, cored, uUseGradient);`,
         );
     };
     return m;
@@ -336,7 +336,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   uColorB.current.value.setHSL(config.hueB / 360, config.satB, config.lightB);
   uUseGradient.current.value = config.useGradient ? 1 : 0;
   uGradScale.current.value = config.gradientScale;
-  uGradOffset.current.value = config.gradientOffset;
   uInnerCenter.current.value.setHSL(config.innerCenterHue / 360, config.innerCenterSat, config.innerCenterLight);
   uInnerEdge.current.value.setHSL(config.innerEdgeHue / 360, config.innerEdgeSat, config.innerEdgeLight);
   uInnerFresnel.current.value = config.innerFresnelPower;

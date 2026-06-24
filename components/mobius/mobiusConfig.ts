@@ -87,8 +87,8 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   baseTiltX: -0.34,
   baseTiltY: 0,
 
-  flatShading: false,
-  roughness: 0.12,
+  flatShading: true,
+  roughness: 0.5,
   metalness: 0,
   emissiveIntensity: 0,
 
@@ -96,7 +96,7 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   thickness: 0.6,
   ior: 1.45,
   iridescence: 0,
-  envIntensity: 0.9,
+  envIntensity: 0.6,
   tint: 0,
 
   useCustomColor: false,
@@ -104,11 +104,11 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   saturation: 0.85,
   lightness: 0.6,
 
-  useGradient: false,
-  hueB: 285,
-  satB: 0.8,
-  lightB: 0.62,
-  gradientScale: 0.7,
+  useGradient: true,
+  hueB: 230,
+  satB: 0.85,
+  lightB: 0.58,
+  gradientScale: 2,
   gradientOffset: 0.5,
 
   innerEnabled: false,
