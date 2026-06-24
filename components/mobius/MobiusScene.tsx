@@ -331,7 +331,8 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   material.ior = config.ior;
   material.iridescence = config.iridescence;
   material.envMapIntensity = config.envIntensity;
-  material.attenuationDistance = config.attenuationDistance > 0 ? config.attenuationDistance : Infinity;
+  // tint 0 => no attenuation (clear); higher => shorter distance => stronger color.
+  material.attenuationDistance = config.tint > 0.001 ? 0.1 + (1 - config.tint) * 1.9 : Infinity;
   uColorB.current.value.setHSL(config.hueB / 360, config.satB, config.lightB);
   uUseGradient.current.value = config.useGradient ? 1 : 0;
   uGradScale.current.value = config.gradientScale;

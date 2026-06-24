@@ -25,6 +25,8 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
   const mouseRef = useRef({ x: 0, y: 0 });
   const [color, setColor] = useState(MOBIUS_BASE_COLOR);
   const [reducedMotion, setReducedMotion] = useState(false);
+  // Pause rendering when the hero (and the möbius with it) is scrolled offscreen.
+  const [active, setActive] = useState(true);
 
   useEffect(() => {
     // Theme color — re-read whenever the <html> theme attributes change.
@@ -54,8 +56,19 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
     window.addEventListener('pointermove', onMove, { passive: true });
     window.addEventListener('blur', onLeave);
 
+    // Pause the render loop when the hero band leaves the viewport.
+    const anchor = document.querySelector('[data-mobius-anchor="hero"]');
+    let io: IntersectionObserver | undefined;
+    if (anchor && 'IntersectionObserver' in window) {
+      io = new IntersectionObserver((entries) => setActive(entries[0]?.isIntersecting ?? true), {
+        rootMargin: '160px',
+      });
+      io.observe(anchor);
+    }
+
     return () => {
       observer.disconnect();
+      io?.disconnect();
       mq.removeEventListener('change', onMq);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('blur', onLeave);
@@ -70,9 +83,16 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
   return (
     <Canvas
       aria-hidden
+      frameloop={active ? 'always' : 'never'}
       camera={{ position: [0, 0, 3.5], fov: 45 }}
-      gl={{ antialias: true, alpha: true }}
-      dpr={[1, 1.8]}
+      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+      dpr={[1, 1.5]}
+      onCreated={({ gl }) => {
+        // Render the glass transmission pass at half resolution — big perf win,
+        // negligible quality loss on a refractive object.
+        const r = gl as unknown as { transmissionResolutionScale?: number };
+        if ('transmissionResolutionScale' in r) r.transmissionResolutionScale = 0.5;
+      }}
       style={{ width: '100%', height: '100%', background: 'transparent', pointerEvents: 'none' }}
     >
       <MobiusScene mouseRef={mouseRef} color={effectiveColor} reducedMotion={reducedMotion} config={config} />

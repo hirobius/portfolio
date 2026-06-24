@@ -50,7 +50,7 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
       ['roughness', 'Roughness (frost)', 0, 1, 0.02],
       ['thickness', 'Thickness', 0, 2, 0.05],
       ['ior', 'IOR (refraction)', 1, 2.33, 0.01],
-      ['attenuationDistance', 'Tint depth (low=strong)', 0, 2, 0.02],
+      ['tint', 'Color tint (0=clear)', 0, 1, 0.02],
       ['iridescence', 'Iridescence', 0, 1, 0.02],
       ['envIntensity', 'Reflections', 0, 2, 0.05],
       ['metalness', 'Metalness', 0, 1, 0.02],

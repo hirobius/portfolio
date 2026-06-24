@@ -33,7 +33,7 @@ export type MobiusConfig = {
   ior: number; // index of refraction
   iridescence: number; // soft oily sheen on the glass
   envIntensity: number; // strength of the reflected environment (glass sparkle)
-  attenuationDistance: number; // how strongly the color tints light through the glass (lower = stronger)
+  tint: number; // 0 = clear/colorless glass, 1 = strongly colored
 
   // Color
   useCustomColor: boolean;
@@ -90,14 +90,14 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   flatShading: false,
   roughness: 0.12,
   metalness: 0,
-  emissiveIntensity: 0.04,
+  emissiveIntensity: 0,
 
   transmission: 1,
   thickness: 0.6,
   ior: 1.45,
   iridescence: 0,
   envIntensity: 0.9,
-  attenuationDistance: 0.6,
+  tint: 0,
 
   useCustomColor: false,
   hue: 230,
