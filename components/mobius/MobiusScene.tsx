@@ -35,6 +35,11 @@ type Props = {
 // budget for smooth scroll compositing, with no visible loss on the animation.
 const TARGET_FPS = 38;
 
+// Hold the möbius back this long on first load so its heavy first frames don't
+// stutter the hero text reveal — the shape warms up + fades in just after the
+// headline has written in.
+const HERO_HOLD_MS = 900;
+
 const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 
 /**
@@ -193,36 +198,30 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   const invalidate = useThree((s) => s.invalidate);
-  const camera = useThree((s) => s.camera);
 
-  // Pre-compile the materials so the first visible frame doesn't hitch on shader
-  // compilation while the fade plays.
-  useEffect(() => {
-    try {
-      gl.compile(scene, camera);
-    } catch {
-      /* ignore */
-    }
-  }, [gl, scene, camera]);
-
-  // Entrance: a few warm-up frames (invisible) absorb the first-render hitch, then
-  // the canvas fades in via a CSS transition (compositor-driven, so it stays
-  // smooth at the capped render rate without rendering the heavy glass at full
-  // refresh). The scale is held fixed so it's a pure fade, not a grow.
+  // Entrance: a few warm-up frames (invisible) absorb the first-render hitch (the
+  // shader compile + transmission-target build land there), then the canvas fades
+  // in via a CSS transition (compositor-driven, so it stays smooth at the capped
+  // render rate). The scale is held fixed so it's a pure fade, not a grow.
   const warmupRef = useRef(0);
   const fadeStartedRef = useRef(false);
+  const startedRef = useRef(false);
 
-  // Drive the demand-mode loop ourselves, always capped at TARGET_FPS — including
-  // the entrance, so the transmission glass never renders at full refresh (the
-  // first-load heaviness). The rAF tick is just a timestamp check. When the hero
-  // scrolls offscreen, `active` is false and we render nothing.
+  // Drive the demand-mode loop ourselves, capped at TARGET_FPS. The first render
+  // is held back by HERO_HOLD_MS so the heavy glass (compile + transmission build
+  // + per-frame cost) doesn't fight the hero text reveal — they'd both spike the
+  // device at once and stutter. The shape then warms up and fades in just after
+  // the headline has written in. Re-activations (scrolling back) resume at once.
   useEffect(() => {
     if (!active) return;
     let raf = 0;
     let last = 0;
     const minInterval = 1000 / TARGET_FPS;
+    const start = performance.now() + (startedRef.current ? 0 : HERO_HOLD_MS);
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
+      if (now < start) return;
+      startedRef.current = true;
       if (now - last >= minInterval) {
         last = now;
         invalidate();
