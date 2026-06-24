@@ -46,7 +46,8 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
   {
     title: 'Acrylic glass',
     rows: [
-      ['transmission', 'Transmission', 0, 1, 0.02],
+      ['glassOpacity', 'Glass opacity (see core)', 0.1, 1, 0.02],
+      ['transmission', 'Transmission (refract)', 0, 1, 0.02],
       ['roughness', 'Roughness (frost)', 0, 1, 0.02],
       ['thickness', 'Thickness', 0, 2, 0.05],
       ['ior', 'IOR (refraction)', 1, 2.33, 0.01],
@@ -60,6 +61,7 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
   {
     title: 'Color core',
     rows: [
+      ['coreStrength', 'Core strength', 0, 1, 0.02],
       ['hueB', 'Core — hue', 0, 360, 1],
       ['satB', 'Core — saturation', 0, 1, 0.01],
       ['lightB', 'Core — lightness', 0, 1, 0.01],
@@ -77,7 +79,8 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
   {
     title: 'Inner shape',
     rows: [
-      ['innerScale', 'Inner size', 0.2, 0.9, 0.02],
+      ['innerTubeRadius', 'Inner tube thickness', 0.03, 0.3, 0.005],
+      ['innerScale', 'Inner size', 0.2, 1.3, 0.02],
       ['innerFresnelPower', 'Fresnel power', 0.2, 6, 0.1],
       ['innerGlow', 'Inner glow', 0, 2, 0.05],
       ['innerCenterHue', 'Center — hue', 0, 360, 1],

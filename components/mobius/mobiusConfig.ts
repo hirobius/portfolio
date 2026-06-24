@@ -34,6 +34,7 @@ export type MobiusConfig = {
   iridescence: number; // soft oily sheen on the glass
   envIntensity: number; // strength of the reflected environment (glass sparkle)
   tint: number; // 0 = clear/colorless glass, 1 = strongly colored
+  glassOpacity: number; // 1 = solid, lower = see the inner core through the frosted shell
 
   // Color
   useCustomColor: boolean;
@@ -43,15 +44,17 @@ export type MobiusConfig = {
 
   // Gradient core (blend the base color toward a second color along the height)
   useGradient: boolean;
+  coreStrength: number; // 0..1 how strongly the outer takes the core color
   hueB: number;
   satB: number;
   lightB: number;
   gradientScale: number;
   gradientOffset: number;
 
-  // Nested inner triangle
+  // Nested inner triangle (same path, thinner tube)
   innerEnabled: boolean;
-  innerScale: number; // size of the inner möbius relative to the outer
+  innerScale: number; // overall size of the inner möbius (1 = same as outer)
+  innerTubeRadius: number; // tube thickness of the inner core (smaller => fits inside)
   innerFresnelPower: number; // fresnel falloff (higher = thinner edge color)
   innerGlow: number; // self-lit intensity so it shows through the glass
   innerCenterHue: number; // color of surfaces facing the camera
@@ -88,39 +91,42 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   baseTiltY: 0,
 
   flatShading: true,
-  roughness: 0.5,
+  roughness: 0.45,
   metalness: 0,
   emissiveIntensity: 0,
 
-  transmission: 1,
+  transmission: 0,
   thickness: 0.6,
   ior: 1.45,
   iridescence: 0,
-  envIntensity: 0.6,
+  envIntensity: 0.55,
   tint: 0,
+  glassOpacity: 0.42,
 
   useCustomColor: false,
   hue: 230,
   saturation: 0.85,
   lightness: 0.6,
 
-  useGradient: true,
-  hueB: 230,
-  satB: 0.85,
-  lightB: 0.58,
-  gradientScale: 2,
+  useGradient: false,
+  coreStrength: 0.6,
+  hueB: 215,
+  satB: 0.9,
+  lightB: 0.55,
+  gradientScale: 1.6,
   gradientOffset: 0.5,
 
-  innerEnabled: false,
-  innerScale: 0.55,
-  innerFresnelPower: 2.2,
-  innerGlow: 0.55,
-  innerCenterHue: 200,
-  innerCenterSat: 0.95,
-  innerCenterLight: 0.5,
-  innerEdgeHue: 320,
+  innerEnabled: true,
+  innerScale: 1,
+  innerTubeRadius: 0.15,
+  innerFresnelPower: 2,
+  innerGlow: 1.3,
+  innerCenterHue: 208,
+  innerCenterSat: 0.85,
+  innerCenterLight: 0.62,
+  innerEdgeHue: 224,
   innerEdgeSat: 0.95,
-  innerEdgeLight: 0.55,
+  innerEdgeLight: 0.42,
 
   ambient: 0.45,
   keyStrength: 1.7,

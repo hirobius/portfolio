@@ -157,6 +157,23 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
 
+  // Inner core: same triangle path, thinner tube (fits inside the outer).
+  const innerGeometry = useMemo(
+    () => buildMobiusTube({ ...config, tubeRadius: config.innerTubeRadius }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      config.pathRadius,
+      config.triAmount,
+      config.innerTubeRadius,
+      config.fluteCount,
+      config.fluteDepth,
+      config.radialSegments,
+      config.tubularSegments,
+      config.twistTurns,
+    ],
+  );
+  useEffect(() => () => innerGeometry.dispose(), [innerGeometry]);
+
   const outerDiameter = useMemo(() => {
     geometry.computeBoundingSphere();
     return (geometry.boundingSphere?.radius ?? 1) * 2;
@@ -333,8 +350,11 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   material.envMapIntensity = config.envIntensity;
   // tint 0 => no attenuation (clear); higher => shorter distance => stronger color.
   material.attenuationDistance = config.tint > 0.001 ? 0.1 + (1 - config.tint) * 1.9 : Infinity;
+  // Semi-transparent frosted shell so the inner core shows through reliably.
+  material.transparent = config.glassOpacity < 0.999;
+  material.opacity = config.glassOpacity;
   uColorB.current.value.setHSL(config.hueB / 360, config.satB, config.lightB);
-  uUseGradient.current.value = config.useGradient ? 1 : 0;
+  uUseGradient.current.value = config.useGradient ? config.coreStrength : 0;
   uGradScale.current.value = config.gradientScale;
   uInnerCenter.current.value.setHSL(config.innerCenterHue / 360, config.innerCenterSat, config.innerCenterLight);
   uInnerEdge.current.value.setHSL(config.innerEdgeHue / 360, config.innerEdgeSat, config.innerEdgeLight);
@@ -454,7 +474,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry} material={material} />
         {config.innerEnabled && (
-          <mesh geometry={geometry} material={innerMaterial} scale={config.innerScale} />
+          <mesh geometry={innerGeometry} material={innerMaterial} scale={config.innerScale} />
         )}
       </group>
     </>
