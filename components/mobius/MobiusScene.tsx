@@ -244,7 +244,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   const uGradScale = useRef({ value: 0.7 });
   // Inner-shape fresnel uniforms.
   const uInnerCenter = useRef({ value: new THREE.Color('#3aa0ff') });
-  const uInnerEdge = useRef({ value: new THREE.Color('#ff4ad0') });
   const uInnerFresnel = useRef({ value: 2.5 });
   const uInnerGlow = useRef({ value: 1 });
 
@@ -320,21 +319,21 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     });
     m.onBeforeCompile = (shader) => {
       shader.uniforms.uCenterColor = uInnerCenter.current;
-      shader.uniforms.uEdgeColor = uInnerEdge.current;
       shader.uniforms.uFresnelPower = uInnerFresnel.current;
       shader.uniforms.uGlow = uInnerGlow.current;
       shader.fragmentShader = shader.fragmentShader
         .replace(
           '#include <common>',
           `#include <common>
-          uniform vec3 uCenterColor, uEdgeColor;
+          uniform vec3 uCenterColor;
           uniform float uFresnelPower, uGlow;`,
         )
         .replace(
           '#include <normal_fragment_begin>',
           `#include <normal_fragment_begin>
           float fres = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), uFresnelPower);
-          vec3 fcol = mix(uCenterColor, uEdgeColor, fres);
+          // Center color in the facing region, falling to black toward the edges.
+          vec3 fcol = mix(uCenterColor, vec3(0.0), fres);
           diffuseColor.rgb = fcol;
           totalEmissiveRadiance += fcol * uGlow;`,
         );
@@ -368,7 +367,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   uUseGradient.current.value = config.useGradient ? config.coreStrength : 0;
   uGradScale.current.value = config.gradientScale;
   uInnerCenter.current.value.setHSL(config.innerCenterHue / 360, config.innerCenterSat, config.innerCenterLight);
-  uInnerEdge.current.value.setHSL(config.innerEdgeHue / 360, config.innerEdgeSat, config.innerEdgeLight);
   uInnerFresnel.current.value = config.innerFresnelPower;
   uInnerGlow.current.value = config.innerGlow;
 
@@ -503,23 +501,11 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     }
   });
 
-  // Key light direction from azimuth/elevation.
-  const az = (config.lightAzimuth * Math.PI) / 180;
-  const el = (config.lightElevation * Math.PI) / 180;
-  const keyPos: [number, number, number] = [
-    Math.sin(az) * Math.cos(el) * 8,
-    Math.sin(el) * 8,
-    Math.cos(az) * Math.cos(el) * 8,
-  ];
-
+  // No scene lights: the glass reads entirely from transmission + the attenuation
+  // tint + the gradient-core shader. The studio lights contributed nothing to the
+  // shipped look (verified), so they're gone.
   return (
     <>
-      {/* Config-driven studio lighting: key (by azimuth/elevation) + fills. */}
-      <ambientLight intensity={config.ambient} />
-      <directionalLight position={keyPos} intensity={config.keyStrength} />
-      <directionalLight position={[0, 0.5, 8]} intensity={config.fillFront} />
-      <directionalLight position={[7, 1, 2]} intensity={config.fillSide} />
-
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry} material={material} />
         {config.innerEnabled && (

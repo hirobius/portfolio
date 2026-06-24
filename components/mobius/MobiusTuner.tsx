@@ -88,20 +88,6 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
       ['innerCenterHue', 'Center — hue', 0, 360, 1],
       ['innerCenterSat', 'Center — saturation', 0, 1, 0.01],
       ['innerCenterLight', 'Center — lightness', 0, 1, 0.01],
-      ['innerEdgeHue', 'Edge — hue', 0, 360, 1],
-      ['innerEdgeSat', 'Edge — saturation', 0, 1, 0.01],
-      ['innerEdgeLight', 'Edge — lightness', 0, 1, 0.01],
-    ],
-  },
-  {
-    title: 'Lighting',
-    rows: [
-      ['ambient', 'Ambient', 0, 1, 0.02],
-      ['keyStrength', 'Key strength', 0, 4, 0.05],
-      ['fillFront', 'Front fill', 0, 2, 0.05],
-      ['fillSide', 'Side fill', 0, 2, 0.05],
-      ['lightAzimuth', 'Light azimuth°', 0, 360, 1],
-      ['lightElevation', 'Light elevation°', -80, 80, 1],
     ],
   },
 ];

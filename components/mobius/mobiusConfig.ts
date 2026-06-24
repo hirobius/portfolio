@@ -62,20 +62,9 @@ export type MobiusConfig = {
   innerTubeRadius: number; // tube thickness of the inner core (smaller => fits inside)
   innerFresnelPower: number; // fresnel falloff (higher = thinner edge color)
   innerGlow: number; // self-lit intensity so it shows through the glass
-  innerCenterHue: number; // color of surfaces facing the camera
+  innerCenterHue: number; // color of surfaces facing the camera (falls to black at edges)
   innerCenterSat: number;
   innerCenterLight: number;
-  innerEdgeHue: number; // color at grazing / far edges
-  innerEdgeSat: number;
-  innerEdgeLight: number;
-
-  // Lighting
-  ambient: number;
-  keyStrength: number;
-  fillFront: number;
-  fillSide: number;
-  lightAzimuth: number;
-  lightElevation: number;
 };
 
 export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
@@ -131,14 +120,4 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   innerCenterHue: 360,
   innerCenterSat: 1,
   innerCenterLight: 0.84,
-  innerEdgeHue: 360,
-  innerEdgeSat: 1,
-  innerEdgeLight: 1,
-
-  ambient: 0.8,
-  keyStrength: 1.7,
-  fillFront: 0.6,
-  fillSide: 0.4,
-  lightAzimuth: 320,
-  lightElevation: -80,
 };
