@@ -99,9 +99,14 @@ body {
 /* ─────────────────────────────────────────────────────────────────────────
    Möbius canvas layer — fixed behind the content
    ───────────────────────────────────────────────────────────────────────── */
+/* Absolute (not fixed) so the canvas scrolls with the page on the compositor —
+   the shape stays glued to the hero during scroll without per-frame JS tracking. */
 .mobius-layer {
-  position: fixed;
-  inset: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100dvh;
   z-index: 0;
   pointer-events: none;
 }
@@ -135,7 +140,7 @@ body {
 }
 
 .wordmark__line:first-child {
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .wordmark__line:last-child {

@@ -414,8 +414,14 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     }
     if (anchor) {
       const rect = anchor.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+      // Position relative to the canvas element, not the viewport. The canvas
+      // now scrolls with the page (absolute), so the anchor's offset within it
+      // is constant while scrolling — the shape stays glued with no JS judder.
+      // (When scrollY is 0 the canvas rect is at the origin, so this matches the
+      // old fixed-canvas behavior exactly.)
+      const canvasRect = state.gl.domElement.getBoundingClientRect();
+      const centerX = rect.left - canvasRect.left + rect.width / 2;
+      const centerY = rect.top - canvasRect.top + rect.height / 2;
       const ndcX = (centerX / vw) * 2 - 1;
       const ndcY = -(centerY / vh) * 2 + 1;
       scratchVec.current.set(ndcX, ndcY, 0.5).unproject(camera);
