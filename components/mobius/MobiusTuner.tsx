@@ -22,7 +22,8 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
   {
     title: 'Geometry',
     rows: [
-      ['pathRadius', 'Scale', 0.4, 1.0, 0.01],
+      ['scale', 'Scale (overall size)', 0.3, 1.2, 0.01],
+      ['pathRadius', 'Ring radius', 0.4, 1.0, 0.01],
       ['triAmount', 'Triangularity', 0, 0.3, 0.005],
       ['tubeRadius', 'Tube thickness', 0.1, 0.36, 0.005],
       ['fluteCount', 'Flute count', 0, 12, 1],

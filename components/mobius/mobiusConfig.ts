@@ -3,6 +3,11 @@
  * with ?tune in the URL) edits these live; the defaults below are what ships.
  */
 export type MobiusConfig = {
+  // Overall size — a multiplier on the auto-fit, so the WHOLE shape scales
+  // uniformly within its band (1 = fill the band; lower = smaller). Unlike
+  // pathRadius, this doesn't change the tube-to-ring proportions.
+  scale: number;
+
   // Geometry (changing these rebuilds the BufferGeometry)
   pathRadius: number;
   triAmount: number;
@@ -74,6 +79,8 @@ export type MobiusConfig = {
 };
 
 export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
+  scale: 1,
+
   pathRadius: 0.7,
   triAmount: 0.065,
   tubeRadius: 0.225,

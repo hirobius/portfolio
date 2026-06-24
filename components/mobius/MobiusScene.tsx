@@ -485,9 +485,9 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     group.position.x += (posX - group.position.x) * lerp;
     group.position.y += (posY - group.position.y) * lerp;
 
-    // Scale is fixed at the fit size immediately — the entrance is a pure
-    // opacity fade, so the shape never grows on screen.
-    group.scale.setScalar(fitRef.current.scale);
+    // Scale is fixed at the fit size (× the config's overall-size multiplier) —
+    // the entrance is a pure opacity fade, so the shape never grows on screen.
+    group.scale.setScalar(fitRef.current.scale * (cfg.scale ?? 1));
 
     const tiltX = cfg.baseTiltX + -my * 0.16;
     const tiltY = cfg.baseTiltY + mx * 0.3;

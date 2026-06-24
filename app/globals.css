@@ -238,13 +238,12 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Hero — headline wraps the möbius centerpiece
+   Hero — headline, möbius band, tagline (stacked)
    ───────────────────────────────────────────────────────────────────────── */
 .hero {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center; /* center the stage + tagline within the viewport */
   text-align: center;
   /* Stable unit so the hero doesn't reflow/jump when the mobile URL bar toggles. */
   min-height: 100vh; /* fallback */
@@ -253,31 +252,7 @@ body {
   padding-bottom: clamp(3rem, 8vh, 6rem);
 }
 
-/* Overlap container — the stage IS the möbius footprint. The headline is layered
-   over it (centered in the hole); the tagline sits clear, just below the stage. */
-.hero__stage {
-  position: relative;
-  width: min(88vw, 600px);
-  height: clamp(340px, 56vh, 620px);
-}
-
-/* Möbius region — fills the stage; MobiusScene fits the shape to this box. */
-.hero__mobius {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-/* Headline — absolutely centered over the stage (so it stays viewport-centered
-   even when it's wider than the möbius box and spans past the shape). */
 .hero__headline {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-  width: max-content;
-  max-width: 92vw;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -286,16 +261,28 @@ body {
   font-size: clamp(2.4rem, 6.4vw, 5.4rem);
   line-height: 1.0;
   letter-spacing: -0.025em;
+  text-wrap: balance;
 }
 
 .hero__line {
   display: block;
+  position: relative;
+  z-index: 2;
+}
+
+/* Reserved band the möbius is fit into — its own space between the headline and
+   the tagline (the type sits clear of the shape, not over it). */
+.hero__mobius {
+  display: block;
+  width: 100%;
+  height: clamp(300px, 46vh, 560px);
+  pointer-events: none;
 }
 
 .hero__tagline {
+  margin-top: clamp(1.5rem, 4vh, 2.75rem);
   position: relative;
   z-index: 2;
-  margin-top: clamp(1.5rem, 4vh, 2.75rem);
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 400;
@@ -441,8 +428,7 @@ body {
     max-width: 26rem;
   }
 
-  .hero__stage {
-    width: min(92vw, 460px);
+  .hero__mobius {
     height: clamp(260px, 40vh, 420px);
   }
 }
