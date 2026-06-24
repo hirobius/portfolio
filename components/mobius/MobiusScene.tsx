@@ -187,6 +187,11 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   const uUseGradient = useRef({ value: 0 });
   const uGradScale = useRef({ value: 0.7 });
   const uGradOffset = useRef({ value: 0.5 });
+  // Inner-shape fresnel uniforms.
+  const uInnerCenter = useRef({ value: new THREE.Color('#3aa0ff') });
+  const uInnerEdge = useRef({ value: new THREE.Color('#ff4ad0') });
+  const uInnerFresnel = useRef({ value: 2.5 });
+  const uInnerGlow = useRef({ value: 1 });
 
   // Frosted-acrylic glass material with the in-place "roll" shader plus a
   // gradient core blended along the loop height.
@@ -248,6 +253,69 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   }, []);
   useEffect(() => () => material.dispose(), [material]);
 
+  // Inner-shape material: same in-place roll, but a fresnel two-color blend
+  // (center color facing the camera -> edge color at grazing) plus a glow so it
+  // reads through the clear outer glass.
+  const innerMaterial = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#000'),
+      roughness: 0.55,
+      metalness: 0,
+      envMapIntensity: 0.3,
+      side: THREE.DoubleSide,
+    });
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uPhase = phase.current;
+      shader.uniforms.uCenterColor = uInnerCenter.current;
+      shader.uniforms.uEdgeColor = uInnerEdge.current;
+      shader.uniforms.uFresnelPower = uInnerFresnel.current;
+      shader.uniforms.uGlow = uInnerGlow.current;
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          uniform float uPhase;
+          attribute vec2 aCenter;
+          attribute vec2 aAxis;
+          vec3 mobiusRoll(vec3 v, vec3 ax, float ang) {
+            float c = cos(ang); float s = sin(ang);
+            return v * c + cross(ax, v) * s + ax * dot(ax, v) * (1.0 - c);
+          }`,
+        )
+        .replace(
+          '#include <beginnormal_vertex>',
+          `vec3 mAxis = normalize(vec3(aAxis, 0.0));
+          vec3 objectNormal = mobiusRoll(normal, mAxis, uPhase);
+          #ifdef USE_TANGENT
+            vec3 objectTangent = vec3( tangent.xyz );
+          #endif`,
+        )
+        .replace(
+          '#include <begin_vertex>',
+          `vec3 mCenter = vec3(aCenter, 0.0);
+          vec3 transformed = mCenter + mobiusRoll(position - mCenter, normalize(vec3(aAxis, 0.0)), uPhase);`,
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          uniform vec3 uCenterColor, uEdgeColor;
+          uniform float uFresnelPower, uGlow;`,
+        )
+        .replace(
+          '#include <normal_fragment_begin>',
+          `#include <normal_fragment_begin>
+          float fres = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), uFresnelPower);
+          vec3 fcol = mix(uCenterColor, uEdgeColor, fres);
+          diffuseColor.rgb = fcol;
+          totalEmissiveRadiance += fcol * uGlow;`,
+        );
+    };
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => () => innerMaterial.dispose(), [innerMaterial]);
+
   // flatShading toggling requires a recompile, so guard it behind an effect.
   useEffect(() => {
     material.flatShading = config.flatShading;
@@ -268,6 +336,10 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   uUseGradient.current.value = config.useGradient ? 1 : 0;
   uGradScale.current.value = config.gradientScale;
   uGradOffset.current.value = config.gradientOffset;
+  uInnerCenter.current.value.setHSL(config.innerCenterHue / 360, config.innerCenterSat, config.innerCenterLight);
+  uInnerEdge.current.value.setHSL(config.innerEdgeHue / 360, config.innerEdgeSat, config.innerEdgeLight);
+  uInnerFresnel.current.value = config.innerFresnelPower;
+  uInnerGlow.current.value = config.innerGlow;
 
   // Color lerp targets.
   const currentColor = useRef(new THREE.Color(color));
@@ -382,7 +454,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry} material={material} />
         {config.innerEnabled && (
-          <mesh geometry={geometry} material={material} scale={config.innerScale} />
+          <mesh geometry={geometry} material={innerMaterial} scale={config.innerScale} />
         )}
       </group>
     </>

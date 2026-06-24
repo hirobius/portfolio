@@ -77,7 +77,17 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
   },
   {
     title: 'Inner shape',
-    rows: [['innerScale', 'Inner size', 0.2, 0.9, 0.02]],
+    rows: [
+      ['innerScale', 'Inner size', 0.2, 0.9, 0.02],
+      ['innerFresnelPower', 'Fresnel power', 0.2, 6, 0.1],
+      ['innerGlow', 'Inner glow', 0, 2, 0.05],
+      ['innerCenterHue', 'Center — hue', 0, 360, 1],
+      ['innerCenterSat', 'Center — saturation', 0, 1, 0.01],
+      ['innerCenterLight', 'Center — lightness', 0, 1, 0.01],
+      ['innerEdgeHue', 'Edge — hue', 0, 360, 1],
+      ['innerEdgeSat', 'Edge — saturation', 0, 1, 0.01],
+      ['innerEdgeLight', 'Edge — lightness', 0, 1, 0.01],
+    ],
   },
   {
     title: 'Lighting',

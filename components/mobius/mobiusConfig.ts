@@ -52,6 +52,14 @@ export type MobiusConfig = {
   // Nested inner triangle
   innerEnabled: boolean;
   innerScale: number; // size of the inner möbius relative to the outer
+  innerFresnelPower: number; // fresnel falloff (higher = thinner edge color)
+  innerGlow: number; // self-lit intensity so it shows through the glass
+  innerCenterHue: number; // color of surfaces facing the camera
+  innerCenterSat: number;
+  innerCenterLight: number;
+  innerEdgeHue: number; // color at grazing / far edges
+  innerEdgeSat: number;
+  innerEdgeLight: number;
 
   // Lighting
   ambient: number;
@@ -105,6 +113,14 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
 
   innerEnabled: false,
   innerScale: 0.55,
+  innerFresnelPower: 2.2,
+  innerGlow: 0.55,
+  innerCenterHue: 200,
+  innerCenterSat: 0.95,
+  innerCenterLight: 0.5,
+  innerEdgeHue: 320,
+  innerEdgeSat: 0.95,
+  innerEdgeLight: 0.55,
 
   ambient: 0.45,
   keyStrength: 1.7,
