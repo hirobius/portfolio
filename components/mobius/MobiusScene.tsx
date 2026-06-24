@@ -469,7 +469,9 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     //    shape trails the scroll direction, then eases back to its glued
     //    position when motion stops — a light parallax with momentum. ──
     const sY = window.scrollY || document.documentElement.scrollTop || 0;
-    const rawVel = (sY - lastScrollRef.current) / Math.max(d, 1e-3); // px/s
+    // Clamp so a one-frame scroll discontinuity (e.g. a layout shift) can't kick
+    // the momentum spring.
+    const rawVel = THREE.MathUtils.clamp((sY - lastScrollRef.current) / Math.max(d, 1e-3), -4000, 4000);
     lastScrollRef.current = sY;
     scrollVelRef.current += (rawVel - scrollVelRef.current) * (1 - Math.exp(-d / 0.05));
     const parTarget = reducedMotion
