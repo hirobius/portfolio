@@ -376,33 +376,25 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   const scratchDir = useRef(new THREE.Vector3());
 
   // Fit (size + glued base position) is measured only on mount / resize /
-  // geometry change — never during scroll. Re-measuring every frame made the
-  // shape rescale when the mobile URL bar shows/hides mid-scroll.
+  // geometry change — never during scroll. Once set, the shape has fixed
+  // dimensions and a fixed position; the canvas scrolls with the page on the
+  // compositor, so it stays glued to the hero with zero per-scroll JS.
   const fitRef = useRef({ scale: 0.5, x: 0, y: 0 });
   const needsFitRef = useRef(true);
-  // Scroll-momentum spring state.
-  const lastScrollRef = useRef(0);
-  const scrollVelRef = useRef(0);
-  const parallaxRef = useRef(0);
 
   useEffect(() => {
     const markDirty = () => {
       needsFitRef.current = true;
     };
+    // Only genuine layout changes refit — never a plain scroll. (On mobile the
+    // address bar can fire 'resize', but with svh units the measured values are
+    // unchanged, so it's a no-op.) The webfont swap reflows the hero once.
     window.addEventListener('resize', markDirty);
     window.addEventListener('orientationchange', markDirty);
-    // Late layout shifts (e.g. the webfont swapping in and reflowing the hero)
-    // move the anchor — refit when fonts settle and when the page height changes.
     if (document.fonts?.ready) document.fonts.ready.then(markDirty).catch(() => {});
-    let ro: ResizeObserver | undefined;
-    if ('ResizeObserver' in window) {
-      ro = new ResizeObserver(markDirty);
-      ro.observe(document.body);
-    }
     return () => {
       window.removeEventListener('resize', markDirty);
       window.removeEventListener('orientationchange', markDirty);
-      ro?.disconnect();
     };
   }, []);
   // Re-fit when the geometry size changes (tuner edits).
@@ -465,26 +457,14 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
       }
     }
 
-    // ── Scroll momentum: a spring-damped offset driven by scroll velocity. The
-    //    shape trails the scroll direction, then eases back to its glued
-    //    position when motion stops — a light parallax with momentum. ──
-    const sY = window.scrollY || document.documentElement.scrollTop || 0;
-    // Clamp so a one-frame scroll discontinuity (e.g. a layout shift) can't kick
-    // the momentum spring.
-    const rawVel = THREE.MathUtils.clamp((sY - lastScrollRef.current) / Math.max(d, 1e-3), -4000, 4000);
-    lastScrollRef.current = sY;
-    scrollVelRef.current += (rawVel - scrollVelRef.current) * (1 - Math.exp(-d / 0.05));
-    const parTarget = reducedMotion
-      ? 0
-      : THREE.MathUtils.clamp(-scrollVelRef.current * 0.00006, -cfg.scrollParallax, cfg.scrollParallax);
-    parallaxRef.current += (parTarget - parallaxRef.current) * (1 - Math.exp(-d / 0.13));
-
+    // Position: the fixed glued base (+ a subtle cursor parallax on desktop).
+    // No scroll-reactive motion — the canvas scrolls with the page itself.
     const mx = reducedMotion ? 0 : mouseRef.current.x;
     const my = reducedMotion ? 0 : mouseRef.current.y;
     const lerp = reducedMotion ? 0.1 : 1 - Math.exp(-d / 0.1);
 
     const posX = fitRef.current.x + mx * 0.12;
-    const posY = fitRef.current.y + my * 0.08 + parallaxRef.current;
+    const posY = fitRef.current.y + my * 0.08;
     group.position.x += (posX - group.position.x) * lerp;
     group.position.y += (posY - group.position.y) * lerp;
 
