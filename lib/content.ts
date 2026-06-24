@@ -5,24 +5,30 @@
 
 export const site = {
   name: 'Adrian Milsap',
-  role: 'Design Engineer',
+  role: 'Design Engineer', // primary title — used for metadata + footer
+  // Titles that cycle in the wordmark. Lead with the primary; trim/reorder freely.
+  // More to choose from: 'UI Engineer', 'UI Developer', 'Frontend Engineer',
+  // 'Design Technologist', 'Interface Engineer', 'Prototyper'.
+  roles: [
+    'Design Engineer',
+    'UX Engineer',
+    'Product Engineer',
+    'Creative Technologist',
+    'Forward Deployed Engineer',
+  ],
   email: 'adrian@hirobius.com',
 };
 
 /**
- * The hero is composed in three parts so the headline can wrap around the
- * möbius (creative.inc style): a line above, the centerpiece, a line below.
+ * Hero copy — editorial headline above the möbius, a quiet line beneath.
  */
 export const hero = {
-  // Small stacked wordmark, top-left.
-  wordmark: ['Adrian Milsap', 'Design Engineer'],
+  // Editorial display headline (two lines, stacked above the centerpiece).
+  headlineTop: 'I design the system',
+  headlineBottom: 'and build the interface.',
 
-  // Editorial display headline, split around the möbius centerpiece.
-  headlineTop: 'I build design systems',
-  headlineBottom: '& AI interfaces, end to end.',
-
-  // Quiet line beneath the headline.
-  tagline: 'From the type ramp to the inference call.',
+  // Quiet line beneath — the "why" in plain language.
+  tagline: 'Erasing the line between how it looks and how it feels.',
 };
 
 /**

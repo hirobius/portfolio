@@ -179,19 +179,45 @@ body {
 .wordmark {
   display: inline-flex;
   flex-direction: column;
+  gap: 0.14rem;
   font-family: var(--font-display);
-  font-size: 0.82rem;
-  line-height: 1.18;
-  letter-spacing: 0.01em;
+  font-size: clamp(0.8rem, 0.76rem + 0.22vw, 0.92rem);
+  line-height: 1.1;
 }
 
-.wordmark__line:first-child {
+.wordmark__name {
   font-weight: 700;
+  letter-spacing: -0.012em;
 }
 
-.wordmark__line:last-child {
+/* Rotating title — a quiet, clean second line under the name. */
+.role {
+  display: block;
   color: var(--text-muted);
-  font-style: italic;
+  font-weight: 460;
+  letter-spacing: 0.005em;
+}
+
+.role__item {
+  display: inline-block;
+  animation: role-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes role-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.3em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role__item {
+    animation: none;
+  }
 }
 
 .topbar__actions {

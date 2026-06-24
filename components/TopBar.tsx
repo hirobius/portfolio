@@ -1,15 +1,13 @@
-import { hero } from '@/lib/content';
+import { site } from '@/lib/content';
 import { ThemeToggle } from './ThemeToggle';
+import { RotatingRole } from './RotatingRole';
 
 export function TopBar() {
   return (
     <header className="topbar">
-      <a className="wordmark" href="#top">
-        {hero.wordmark.map((line) => (
-          <span key={line} className="wordmark__line">
-            {line}
-          </span>
-        ))}
+      <a className="wordmark" href="#top" aria-label={`${site.name} — ${site.role}`}>
+        <span className="wordmark__name">{site.name}</span>
+        <RotatingRole roles={site.roles} />
       </a>
 
       <div className="topbar__actions">
