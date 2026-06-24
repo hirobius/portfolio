@@ -96,15 +96,17 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
   return (
     <Canvas
       aria-hidden
-      frameloop={active ? 'always' : 'never'}
+      // Demand mode: MobiusScene drives renders itself at a capped frame rate
+      // (and stops entirely when the hero is offscreen via `active`).
+      frameloop="demand"
       camera={{ position: [0, 0, 3.5], fov: 45 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 1.5]}
       onCreated={({ gl }) => {
-        // Render the glass transmission pass at half resolution — big perf win,
-        // negligible quality loss on a refractive object.
+        // Render the glass transmission pass at reduced resolution — big perf
+        // win, negligible quality loss on a frosted/refractive object.
         const r = gl as unknown as { transmissionResolutionScale?: number };
-        if ('transmissionResolutionScale' in r) r.transmissionResolutionScale = 0.5;
+        if ('transmissionResolutionScale' in r) r.transmissionResolutionScale = 0.4;
       }}
       style={{ width: '100%', height: '100%', background: 'transparent', pointerEvents: 'none' }}
     >
@@ -113,6 +115,7 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
         color={effectiveColor}
         reducedMotion={reducedMotion}
         isLight={isLight}
+        active={active}
         config={config}
       />
     </Canvas>

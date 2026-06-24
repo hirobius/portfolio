@@ -25,8 +25,15 @@ type Props = {
   color: string;
   reducedMotion: boolean;
   isLight: boolean;
+  active: boolean;
   config: MobiusConfig;
 };
+
+// Cap the render loop well below the display refresh. The transmission pass
+// re-renders the whole scene each frame — the dominant GPU cost — so rendering
+// the subtle roll at ~38fps (instead of 60/120Hz) frees most of the frame
+// budget for smooth scroll compositing, with no visible loss on the animation.
+const TARGET_FPS = 38;
 
 const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 
@@ -134,7 +141,7 @@ function buildMobiusTube(cfg: MobiusConfig): THREE.BufferGeometry {
   return geometry;
 }
 
-export function MobiusScene({ mouseRef, color, reducedMotion, isLight, config }: Props) {
+export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, config }: Props) {
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -185,6 +192,27 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, config }:
   // reflect/refract — without it, transmission reads as a flat tint.
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
+  const invalidate = useThree((s) => s.invalidate);
+
+  // Drive the demand-mode loop ourselves at a capped frame rate. The rAF tick is
+  // cheap (a timestamp check); it only triggers an actual render every ~1/38s.
+  // When the hero scrolls offscreen, `active` is false and we render nothing.
+  useEffect(() => {
+    if (!active) return;
+    let raf = 0;
+    let last = 0;
+    const minInterval = 1000 / TARGET_FPS;
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      if (now - last >= minInterval) {
+        last = now;
+        invalidate();
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, invalidate]);
+
   const envTexture = useMemo(() => {
     const pmrem = new THREE.PMREMGenerator(gl);
     const tex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
