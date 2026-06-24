@@ -24,6 +24,7 @@ type Props = {
   mouseRef: React.MutableRefObject<{ x: number; y: number }>;
   color: string;
   reducedMotion: boolean;
+  isLight: boolean;
   config: MobiusConfig;
 };
 
@@ -133,7 +134,7 @@ function buildMobiusTube(cfg: MobiusConfig): THREE.BufferGeometry {
   return geometry;
 }
 
-export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
+export function MobiusScene({ mouseRef, color, reducedMotion, isLight, config }: Props) {
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -157,20 +158,21 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
 
-  // Inner core: same triangle path, thinner tube (fits inside the outer).
+  // Inner core: a plain SMOOTH tube on the same triangle path — no twist, no
+  // flutes, no roll, fewer segments. Just thickness + color (cheap + clean).
   const innerGeometry = useMemo(
-    () => buildMobiusTube({ ...config, tubeRadius: config.innerTubeRadius }),
+    () =>
+      buildMobiusTube({
+        ...config,
+        tubeRadius: config.innerTubeRadius,
+        twistTurns: 0,
+        fluteDepth: 0,
+        fluteCount: 1,
+        radialSegments: 16,
+        tubularSegments: 180,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      config.pathRadius,
-      config.triAmount,
-      config.innerTubeRadius,
-      config.fluteCount,
-      config.fluteDepth,
-      config.radialSegments,
-      config.tubularSegments,
-      config.twistTurns,
-    ],
+    [config.pathRadius, config.triAmount, config.innerTubeRadius],
   );
   useEffect(() => () => innerGeometry.dispose(), [innerGeometry]);
 
@@ -203,7 +205,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   const uColorB = useRef({ value: new THREE.Color('#a070ff') });
   const uUseGradient = useRef({ value: 0 });
   const uGradScale = useRef({ value: 0.7 });
-  const uGradOffset = useRef({ value: 0.5 });
   // Inner-shape fresnel uniforms.
   const uInnerCenter = useRef({ value: new THREE.Color('#3aa0ff') });
   const uInnerEdge = useRef({ value: new THREE.Color('#ff4ad0') });
@@ -270,48 +271,21 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   }, []);
   useEffect(() => () => material.dispose(), [material]);
 
-  // Inner-shape material: same in-place roll, but a fresnel two-color blend
-  // (center color facing the camera -> edge color at grazing) plus a glow so it
-  // reads through the clear outer glass.
+  // Inner-shape material: a static, smooth fresnel two-color blend (center color
+  // facing the camera -> edge color at grazing). No roll shader, no env — cheap.
   const innerMaterial = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
       color: new THREE.Color('#000'),
-      roughness: 0.55,
+      roughness: 0.5,
       metalness: 0,
-      envMapIntensity: 0.3,
+      envMapIntensity: 0,
       side: THREE.DoubleSide,
     });
     m.onBeforeCompile = (shader) => {
-      shader.uniforms.uPhase = phase.current;
       shader.uniforms.uCenterColor = uInnerCenter.current;
       shader.uniforms.uEdgeColor = uInnerEdge.current;
       shader.uniforms.uFresnelPower = uInnerFresnel.current;
       shader.uniforms.uGlow = uInnerGlow.current;
-      shader.vertexShader = shader.vertexShader
-        .replace(
-          '#include <common>',
-          `#include <common>
-          uniform float uPhase;
-          attribute vec2 aCenter;
-          attribute vec2 aAxis;
-          vec3 mobiusRoll(vec3 v, vec3 ax, float ang) {
-            float c = cos(ang); float s = sin(ang);
-            return v * c + cross(ax, v) * s + ax * dot(ax, v) * (1.0 - c);
-          }`,
-        )
-        .replace(
-          '#include <beginnormal_vertex>',
-          `vec3 mAxis = normalize(vec3(aAxis, 0.0));
-          vec3 objectNormal = mobiusRoll(normal, mAxis, uPhase);
-          #ifdef USE_TANGENT
-            vec3 objectTangent = vec3( tangent.xyz );
-          #endif`,
-        )
-        .replace(
-          '#include <begin_vertex>',
-          `vec3 mCenter = vec3(aCenter, 0.0);
-          vec3 transformed = mCenter + mobiusRoll(position - mCenter, normalize(vec3(aAxis, 0.0)), uPhase);`,
-        );
       shader.fragmentShader = shader.fragmentShader
         .replace(
           '#include <common>',
@@ -344,7 +318,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
   material.metalness = config.metalness;
   material.emissiveIntensity = config.emissiveIntensity;
   material.transmission = config.transmission;
-  material.thickness = config.thickness;
+  material.thickness = isLight ? config.thicknessLight : config.thickness;
   material.ior = config.ior;
   material.iridescence = config.iridescence;
   material.envMapIntensity = config.envIntensity;

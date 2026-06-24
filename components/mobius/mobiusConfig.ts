@@ -29,7 +29,8 @@ export type MobiusConfig = {
 
   // Acrylic / glass
   transmission: number; // 0 = opaque, 1 = full glass (frosted by roughness)
-  thickness: number; // refraction depth
+  thickness: number; // refraction depth (dark theme)
+  thicknessLight: number; // refraction depth on the light theme
   ior: number; // index of refraction
   iridescence: number; // soft oily sheen on the glass
   envIntensity: number; // strength of the reflected environment (glass sparkle)
@@ -42,14 +43,13 @@ export type MobiusConfig = {
   saturation: number;
   lightness: number;
 
-  // Gradient core (blend the base color toward a second color along the height)
+  // Color core (inverse-fresnel tint on the outer glass)
   useGradient: boolean;
   coreStrength: number; // 0..1 how strongly the outer takes the core color
   hueB: number;
   satB: number;
   lightB: number;
-  gradientScale: number;
-  gradientOffset: number;
+  gradientScale: number; // fresnel falloff (core size)
 
   // Nested inner triangle (same path, thinner tube)
   innerEnabled: boolean;
@@ -76,62 +76,62 @@ export type MobiusConfig = {
 export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   pathRadius: 0.7,
   triAmount: 0.065,
-  tubeRadius: 0.22,
+  tubeRadius: 0.225,
   fluteCount: 1,
-  fluteDepth: 0.3,
+  fluteDepth: 0.17,
   radialSegments: 6,
-  tubularSegments: 720,
+  tubularSegments: 688,
   twistTurns: 0.5,
 
-  rollSpeed: 0.5,
+  rollSpeed: 0.35,
   autoRotateX: 0,
   autoRotateY: 0,
   autoRotateZ: 0,
-  baseTiltX: -0.34,
-  baseTiltY: 0,
+  baseTiltX: 0,
+  baseTiltY: 0.18,
 
   flatShading: true,
-  roughness: 0.35,
+  roughness: 0.78,
   metalness: 0,
   emissiveIntensity: 0,
 
   transmission: 1,
-  thickness: 0.6,
-  ior: 1.4,
-  iridescence: 0,
-  envIntensity: 0.55,
-  tint: 0,
-  glassOpacity: 0.7,
+  thickness: 0.7,
+  thicknessLight: 0.3,
+  ior: 1.32,
+  iridescence: 0.16,
+  envIntensity: 0.45,
+  tint: 1,
+  glassOpacity: 1,
 
-  useCustomColor: false,
-  hue: 230,
-  saturation: 0.85,
-  lightness: 0.6,
+  useCustomColor: true,
+  hue: 246,
+  saturation: 0.42,
+  lightness: 0.72,
 
-  useGradient: false,
-  coreStrength: 0.6,
-  hueB: 215,
-  satB: 0.9,
-  lightB: 0.55,
-  gradientScale: 1.6,
-  gradientOffset: 0.5,
+  useGradient: true,
+  coreStrength: 1,
+  hueB: 0,
+  satB: 1,
+  lightB: 1,
+  gradientScale: 0.3,
 
   innerEnabled: true,
   innerScale: 1,
-  innerTubeRadius: 0.15,
-  innerFresnelPower: 2,
-  innerGlow: 1.3,
+  innerTubeRadius: 0.06,
+  innerFresnelPower: 5.2,
+  innerGlow: 0,
   innerCenterHue: 208,
-  innerCenterSat: 0.85,
-  innerCenterLight: 0.62,
-  innerEdgeHue: 224,
-  innerEdgeSat: 0.95,
-  innerEdgeLight: 0.42,
+  innerCenterSat: 0.92,
+  innerCenterLight: 0.84,
+  innerEdgeHue: 360,
+  innerEdgeSat: 1,
+  innerEdgeLight: 1,
 
-  ambient: 0.45,
+  ambient: 0.8,
   keyStrength: 1.7,
   fillFront: 0.6,
   fillSide: 0.4,
-  lightAzimuth: 325,
-  lightElevation: 35,
+  lightAzimuth: 320,
+  lightElevation: -80,
 };

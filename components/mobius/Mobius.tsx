@@ -21,16 +21,29 @@ function readCssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+function bgIsLight(hex: string): boolean {
+  const m = hex.replace('#', '');
+  if (m.length < 6) return false;
+  const r = parseInt(m.slice(0, 2), 16);
+  const g = parseInt(m.slice(2, 4), 16);
+  const b = parseInt(m.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5;
+}
+
 export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConfig }) {
   const mouseRef = useRef({ x: 0, y: 0 });
   const [color, setColor] = useState(MOBIUS_BASE_COLOR);
+  const [isLight, setIsLight] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   // Pause rendering when the hero (and the möbius with it) is scrolled offscreen.
   const [active, setActive] = useState(true);
 
   useEffect(() => {
     // Theme color — re-read whenever the <html> theme attributes change.
-    const applyColor = () => setColor(readCssVar('--mobius-color') || MOBIUS_BASE_COLOR);
+    const applyColor = () => {
+      setColor(readCssVar('--mobius-color') || MOBIUS_BASE_COLOR);
+      setIsLight(bgIsLight(readCssVar('--mobius-bg')));
+    };
     applyColor();
     const observer = new MutationObserver(applyColor);
     observer.observe(document.documentElement, {
@@ -95,7 +108,13 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
       }}
       style={{ width: '100%', height: '100%', background: 'transparent', pointerEvents: 'none' }}
     >
-      <MobiusScene mouseRef={mouseRef} color={effectiveColor} reducedMotion={reducedMotion} config={config} />
+      <MobiusScene
+        mouseRef={mouseRef}
+        color={effectiveColor}
+        reducedMotion={reducedMotion}
+        isLight={isLight}
+        config={config}
+      />
     </Canvas>
   );
 }
