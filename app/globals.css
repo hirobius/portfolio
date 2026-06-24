@@ -98,26 +98,44 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Text reveal (motion package — see components/motion/RevealText)
+   Text reveal (motion package — see components/motion/Reveal)
    ───────────────────────────────────────────────────────────────────────── */
-/* Hidden before the reveal runs, but ONLY when JS is active (the head script
-   adds `.js`), so no-JS users always see the text. A 0s/3s failsafe animation
-   reveals it even if the reveal script never runs. */
-.js .reveal-armed {
-  visibility: hidden;
-  animation: reveal-failsafe 0s linear 3s forwards;
+/* Per-character rise + fade, animated on the compositor so it stays smooth while
+   the möbius works the main thread. `both` fill keeps each char in its hidden
+   start state until its staggered turn — no JS, no flash. Falls back to plain
+   visible text where animations (or JS) aren't available. */
+.reveal {
+  --reveal-duration: 0.62s;
+  --reveal-stagger: 0.022s;
+  --reveal-ease: cubic-bezier(0.16, 1, 0.3, 1); /* long expo-out settle */
+  --reveal-base: 0s;
 }
 
-@keyframes reveal-failsafe {
+.reveal__word {
+  display: inline-block;
+  white-space: nowrap; /* a word's characters stay together */
+}
+
+.reveal__char {
+  display: inline-block;
+  animation: reveal-char var(--reveal-duration) var(--reveal-ease) both;
+  animation-delay: calc(var(--reveal-base) + var(--i) * var(--reveal-stagger));
+}
+
+@keyframes reveal-char {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em);
+  }
   to {
-    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal-armed {
-    visibility: visible !important;
-    animation: none !important;
+  .reveal__char {
+    animation: none;
   }
 }
 
@@ -226,6 +244,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center; /* center the stage + tagline within the viewport */
   text-align: center;
   /* Stable unit so the hero doesn't reflow/jump when the mobile URL bar toggles. */
   min-height: 100vh; /* fallback */
@@ -234,7 +253,31 @@ body {
   padding-bottom: clamp(3rem, 8vh, 6rem);
 }
 
+/* Overlap container — the stage IS the möbius footprint. The headline is layered
+   over it (centered in the hole); the tagline sits clear, just below the stage. */
+.hero__stage {
+  position: relative;
+  width: min(88vw, 600px);
+  height: clamp(340px, 56vh, 620px);
+}
+
+/* Möbius region — fills the stage; MobiusScene fits the shape to this box. */
+.hero__mobius {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Headline — absolutely centered over the stage (so it stays viewport-centered
+   even when it's wider than the möbius box and spans past the shape). */
 .hero__headline {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  width: max-content;
+  max-width: 92vw;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -243,26 +286,16 @@ body {
   font-size: clamp(2.4rem, 6.4vw, 5.4rem);
   line-height: 1.0;
   letter-spacing: -0.025em;
-  text-wrap: balance;
 }
 
 .hero__line {
   display: block;
-  position: relative;
-  z-index: 2;
-}
-
-/* Reserved band the möbius is anchored into. */
-.hero__mobius {
-  display: block;
-  width: 100%;
-  height: clamp(300px, 46vh, 560px);
 }
 
 .hero__tagline {
-  margin-top: clamp(1.5rem, 4vh, 2.75rem);
   position: relative;
   z-index: 2;
+  margin-top: clamp(1.5rem, 4vh, 2.75rem);
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 400;
@@ -408,7 +441,8 @@ body {
     max-width: 26rem;
   }
 
-  .hero__mobius {
+  .hero__stage {
+    width: min(92vw, 460px);
     height: clamp(260px, 40vh, 420px);
   }
 }

@@ -1,5 +1,6 @@
 /**
  * Motion package — reusable animation primitives for the Hirobius system.
- * Pairs with the motion tokens in `lib/motion.ts`.
+ * The reveal runs as native CSS (see `.reveal` in globals.css); timing tokens
+ * live in `lib/motion.ts`.
  */
-export { RevealText } from './RevealText';
+export { Reveal } from './Reveal';

@@ -25,13 +25,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className={satoshi.variable}>
-      <head>
-        {/* Marks JS as active before first paint so the text-reveal can hide
-            itself only for JS users (no-JS keeps the text visible). */}
-        <script
-          dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }}
-        />
-      </head>
       <body>
         <ThemeProvider>{children}</ThemeProvider>
       </body>

@@ -1,33 +1,16 @@
 /**
- * Motion tokens — the shared animation vocabulary for the Hirobius system.
+ * Hero entrance choreography.
  *
- * Components (e.g. RevealText) read these instead of hand-tuning timing per use,
- * so motion stays consistent the same way color/spacing tokens keep visuals
- * consistent. Durations are in seconds; eases are GSAP ease strings.
+ * The per-character reveal itself is native CSS (see `.reveal` in globals.css).
+ * These are the base delays (seconds) that decide WHEN each element starts,
+ * relative to load: the möbius settles in first, then the headline rises in over
+ * it, then the tagline — one composition rather than each animating on its own.
  */
-export const motion = {
-  duration: {
-    /** the editorial headline rise */
-    reveal: 0.9,
-  },
-  ease: {
-    /** long, settled deceleration — the "lifted into place" feel */
-    reveal: 'expo.out',
-  },
-  stagger: {
-    /** seconds between adjacent characters in a reveal */
-    char: 0.02,
-    /** seconds between adjacent words in a reveal */
-    word: 0.05,
-  },
-  /**
-   * Hero entrance choreography — per-element start offsets (seconds) so the
-   * headline lines and tagline enter as one composition, overlapping the möbius
-   * canvas fade rather than each animating independently.
-   */
-  sequence: {
-    heroLineTop: 0.15,
-    heroLineBottom: 0.42,
-    heroTagline: 0.72,
-  },
+export const sequence = {
+  /** first headline line — begins after the möbius has animated in */
+  headlineTop: 1.2,
+  /** second headline line — overlaps the tail of the first */
+  headlineBottom: 1.45,
+  /** the tagline comes in last */
+  tagline: 1.72,
 } as const;
