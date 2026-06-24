@@ -232,19 +232,25 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     return () => cancelAnimationFrame(raf);
   }, [active, invalidate]);
 
+  // Procedural room environment for glass reflections — but only built when it's
+  // actually used (envIntensity > 0). With it off (the default), we skip the
+  // PMREM generation entirely and leave scene.environment null, so neither pass
+  // samples an env map. Pure perf win, identical pixels.
+  const envEnabled = config.envIntensity > 0;
   const envTexture = useMemo(() => {
+    if (!envEnabled) return null;
     const pmrem = new THREE.PMREMGenerator(gl);
     const tex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
     return tex;
-  }, [gl]);
+  }, [gl, envEnabled]);
   useEffect(() => {
     scene.environment = envTexture;
     return () => {
       if (scene.environment === envTexture) scene.environment = null;
-      envTexture.dispose();
     };
   }, [scene, envTexture]);
+  useEffect(() => () => envTexture?.dispose(), [envTexture]);
 
   // Shader uniforms — mutated on config change / each frame; shared with the
   // compiled shader (roll phase + gradient core).
@@ -264,6 +270,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     const m = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(color),
       emissive: new THREE.Color(color),
+      // Glass needs both faces — the back surface drives the refraction depth.
       side: THREE.DoubleSide,
     });
     m.onBeforeCompile = (shader) => {
@@ -326,7 +333,10 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
       roughness: 0.5,
       metalness: 0,
       envMapIntensity: 0,
-      side: THREE.DoubleSide,
+      // The inner core is a closed, opaque tube — its back faces are always
+      // occluded, so FrontSide is identical on screen but halves its fragment
+      // cost (it's drawn in both the main and transmission passes).
+      side: THREE.FrontSide,
     });
     m.onBeforeCompile = (shader) => {
       shader.uniforms.uCenterColor = uInnerCenter.current;
