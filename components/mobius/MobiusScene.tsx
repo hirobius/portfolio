@@ -205,24 +205,24 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     }
   }, [gl, scene, camera]);
 
-  // Entrance: a few warm-up frames (invisible) to absorb the first-render hitch,
-  // then an opacity fade. `entranceDoneRef` lets the throttle loop run the fade
-  // at full refresh; the scale is held fixed so it's a pure fade, not a grow.
+  // Entrance: a few warm-up frames (invisible) absorb the first-render hitch, then
+  // the canvas fades in via a CSS transition (compositor-driven, so it stays
+  // smooth at the capped render rate without rendering the heavy glass at full
+  // refresh). The scale is held fixed so it's a pure fade, not a grow.
   const warmupRef = useRef(0);
-  const entranceRef = useRef(0);
-  const entranceDoneRef = useRef(false);
+  const fadeStartedRef = useRef(false);
 
-  // Drive the demand-mode loop ourselves. During the brief entrance we render at
-  // full refresh so the animate-in is smooth; afterward we cap to TARGET_FPS to
-  // keep scrolling cheap. The rAF tick itself is just a timestamp check. When the
-  // hero scrolls offscreen, `active` is false and we render nothing.
+  // Drive the demand-mode loop ourselves, always capped at TARGET_FPS — including
+  // the entrance, so the transmission glass never renders at full refresh (the
+  // first-load heaviness). The rAF tick is just a timestamp check. When the hero
+  // scrolls offscreen, `active` is false and we render nothing.
   useEffect(() => {
     if (!active) return;
     let raf = 0;
     let last = 0;
+    const minInterval = 1000 / TARGET_FPS;
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
-      const minInterval = entranceDoneRef.current ? 1000 / TARGET_FPS : 0;
       if (now - last >= minInterval) {
         last = now;
         invalidate();
@@ -439,20 +439,16 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     phase.current.value += (reducedMotion ? cfg.rollSpeed * 0.3 : cfg.rollSpeed) * d;
 
     // Entrance — hold invisible for a few warm-up frames (the shader compile /
-    // transmission-target build happen here), then fade the whole CANVAS in via
-    // CSS opacity. Fading the composited image keeps the inner + outer glass on
-    // one timing and avoids the transmission-material "pop" that per-material
-    // opacity caused. Delta is clamped, so a slow frame can't make it jump.
-    if (!entranceDoneRef.current) {
+    // transmission-target build land here), then hand the fade to a CSS opacity
+    // transition. The compositor runs it smoothly at display refresh while the
+    // glass itself only re-renders at the capped rate — no full-refresh load.
+    if (!fadeStartedRef.current) {
       warmupRef.current += 1;
       if (warmupRef.current > 4) {
-        entranceRef.current = Math.min(1, entranceRef.current + d / 0.45);
-      }
-      const e = entranceRef.current <= 0 ? 0 : 1 - Math.pow(1 - entranceRef.current, 2);
-      state.gl.domElement.style.opacity = String(e);
-      if (entranceRef.current >= 1) {
-        entranceDoneRef.current = true;
-        state.gl.domElement.style.opacity = '1';
+        fadeStartedRef.current = true;
+        const canvas = state.gl.domElement;
+        canvas.style.transition = 'opacity 0.6s ease-out';
+        canvas.style.opacity = '1';
       }
     }
 
