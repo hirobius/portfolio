@@ -29,7 +29,7 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
       ['fluteDepth', 'Flute depth', 0, 0.5, 0.01],
       ['twistTurns', 'Twist turns', 0, 6, 0.5],
       ['radialSegments', 'Radial segments', 3, 48, 1],
-      ['tubularSegments', 'Tubular segments', 12, 360, 4],
+      ['tubularSegments', 'Tubular segments', 12, 1200, 4],
     ],
   },
   {

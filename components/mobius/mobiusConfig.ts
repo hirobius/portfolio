@@ -48,7 +48,7 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   fluteCount: 1,
   fluteDepth: 0.3,
   radialSegments: 6,
-  tubularSegments: 360,
+  tubularSegments: 720,
   twistTurns: 0.5,
 
   rollSpeed: 0.5,
