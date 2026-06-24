@@ -19,6 +19,7 @@ export type MobiusConfig = {
   autoRotateY: number;
   autoRotateZ: number;
   baseTiltX: number; // resting forward tilt
+  baseTiltY: number; // resting horizontal turn
 
   // Material
   flatShading: boolean; // faceted vs smooth
@@ -56,6 +57,7 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   autoRotateY: 0,
   autoRotateZ: 0,
   baseTiltX: -0.34,
+  baseTiltY: 0,
 
   flatShading: true,
   roughness: 1,

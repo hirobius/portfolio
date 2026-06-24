@@ -293,7 +293,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion, config }: Props) {
     group.scale.z += (scaleTarget - group.scale.z) * lerp;
 
     const tiltX = cfg.baseTiltX + -my * 0.16;
-    const tiltY = mx * 0.3;
+    const tiltY = cfg.baseTiltY + mx * 0.3;
     group.rotation.x += (tiltX - group.rotation.x) * lerp;
     group.rotation.y += (tiltY - group.rotation.y) * lerp;
 
