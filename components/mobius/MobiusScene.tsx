@@ -375,6 +375,41 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   const scratchVec = useRef(new THREE.Vector3());
   const scratchDir = useRef(new THREE.Vector3());
 
+  // Fit (size + glued base position) is measured only on mount / resize /
+  // geometry change — never during scroll. Re-measuring every frame made the
+  // shape rescale when the mobile URL bar shows/hides mid-scroll.
+  const fitRef = useRef({ scale: 0.5, x: 0, y: 0 });
+  const needsFitRef = useRef(true);
+  // Scroll-momentum spring state.
+  const lastScrollRef = useRef(0);
+  const scrollVelRef = useRef(0);
+  const parallaxRef = useRef(0);
+
+  useEffect(() => {
+    const markDirty = () => {
+      needsFitRef.current = true;
+    };
+    window.addEventListener('resize', markDirty);
+    window.addEventListener('orientationchange', markDirty);
+    // Late layout shifts (e.g. the webfont swapping in and reflowing the hero)
+    // move the anchor — refit when fonts settle and when the page height changes.
+    if (document.fonts?.ready) document.fonts.ready.then(markDirty).catch(() => {});
+    let ro: ResizeObserver | undefined;
+    if ('ResizeObserver' in window) {
+      ro = new ResizeObserver(markDirty);
+      ro.observe(document.body);
+    }
+    return () => {
+      window.removeEventListener('resize', markDirty);
+      window.removeEventListener('orientationchange', markDirty);
+      ro?.disconnect();
+    };
+  }, []);
+  // Re-fit when the geometry size changes (tuner edits).
+  useEffect(() => {
+    needsFitRef.current = true;
+  }, [outerDiameter]);
+
   useFrame((state, delta) => {
     const group = groupRef.current;
     if (!group) return;
@@ -382,8 +417,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
 
     const d = Math.min(delta, 0.033);
     const camera = state.camera as THREE.PerspectiveCamera;
-    const vw = Math.max(state.size.width, 1);
-    const vh = Math.max(state.size.height, 1);
 
     // Color — clear glass: a white surface, with the theme color carried as the
     // transmission tint (light through the glass picks it up) + a faint glow.
@@ -400,50 +433,60 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     const elapsed = state.clock.elapsedTime - entranceStartRef.current;
     const entrance = 1 - Math.pow(1 - Math.min(1, elapsed / 0.7), 3);
 
-    // Anchor + fit
-    const visibleHeight =
-      2 * Math.abs(camera.position.z) * Math.tan(((camera.fov * Math.PI) / 180) / 2);
-    let targetX = 0;
-    let targetY = 0;
-    let fitScale = 0.5;
+    // ── Fit: measured only when flagged (mount / resize / geometry change), so
+    //    nothing rescales or shifts during a scroll. The canvas scrolls with the
+    //    page (absolute), so the anchor's offset within it — and thus this base
+    //    position — is scroll-invariant. ──
+    if (needsFitRef.current) {
+      let anchor = anchorRef.current;
+      if (!anchor || !document.body.contains(anchor)) {
+        anchor = document.querySelector<HTMLElement>(ANCHOR_SELECTOR);
+        anchorRef.current = anchor;
+      }
+      if (anchor) {
+        const vw = Math.max(state.size.width, 1);
+        const vh = Math.max(state.size.height, 1);
+        const visibleHeight =
+          2 * Math.abs(camera.position.z) * Math.tan(((camera.fov * Math.PI) / 180) / 2);
+        const rect = anchor.getBoundingClientRect();
+        const canvasRect = state.gl.domElement.getBoundingClientRect();
+        const centerX = rect.left - canvasRect.left + rect.width / 2;
+        const centerY = rect.top - canvasRect.top + rect.height / 2;
+        const ndcX = (centerX / vw) * 2 - 1;
+        const ndcY = -(centerY / vh) * 2 + 1;
+        scratchVec.current.set(ndcX, ndcY, 0.5).unproject(camera);
+        scratchDir.current.copy(scratchVec.current).sub(camera.position).normalize();
+        const t = (0 - camera.position.z) / scratchDir.current.z;
+        fitRef.current.x = camera.position.x + scratchDir.current.x * t;
+        fitRef.current.y = camera.position.y + scratchDir.current.y * t;
+        const bandWorldHeight = (rect.height / vh) * visibleHeight;
+        fitRef.current.scale = Math.max(0.15, Math.min((bandWorldHeight * 0.95) / outerDiameter, 1.1));
+        needsFitRef.current = false;
+      }
+    }
 
-    let anchor = anchorRef.current;
-    if (!anchor || !document.body.contains(anchor)) {
-      anchor = document.querySelector<HTMLElement>(ANCHOR_SELECTOR);
-      anchorRef.current = anchor;
-    }
-    if (anchor) {
-      const rect = anchor.getBoundingClientRect();
-      // Position relative to the canvas element, not the viewport. The canvas
-      // now scrolls with the page (absolute), so the anchor's offset within it
-      // is constant while scrolling — the shape stays glued with no JS judder.
-      // (When scrollY is 0 the canvas rect is at the origin, so this matches the
-      // old fixed-canvas behavior exactly.)
-      const canvasRect = state.gl.domElement.getBoundingClientRect();
-      const centerX = rect.left - canvasRect.left + rect.width / 2;
-      const centerY = rect.top - canvasRect.top + rect.height / 2;
-      const ndcX = (centerX / vw) * 2 - 1;
-      const ndcY = -(centerY / vh) * 2 + 1;
-      scratchVec.current.set(ndcX, ndcY, 0.5).unproject(camera);
-      scratchDir.current.copy(scratchVec.current).sub(camera.position).normalize();
-      const t = (0 - camera.position.z) / scratchDir.current.z;
-      targetX = camera.position.x + scratchDir.current.x * t;
-      targetY = camera.position.y + scratchDir.current.y * t;
-      const bandWorldHeight = (rect.height / vh) * visibleHeight;
-      fitScale = (bandWorldHeight * 0.95) / outerDiameter;
-    }
-    fitScale = Math.max(0.15, Math.min(fitScale, 1.1));
+    // ── Scroll momentum: a spring-damped offset driven by scroll velocity. The
+    //    shape trails the scroll direction, then eases back to its glued
+    //    position when motion stops — a light parallax with momentum. ──
+    const sY = window.scrollY || document.documentElement.scrollTop || 0;
+    const rawVel = (sY - lastScrollRef.current) / Math.max(d, 1e-3); // px/s
+    lastScrollRef.current = sY;
+    scrollVelRef.current += (rawVel - scrollVelRef.current) * (1 - Math.exp(-d / 0.05));
+    const parTarget = reducedMotion
+      ? 0
+      : THREE.MathUtils.clamp(-scrollVelRef.current * 0.00006, -cfg.scrollParallax, cfg.scrollParallax);
+    parallaxRef.current += (parTarget - parallaxRef.current) * (1 - Math.exp(-d / 0.13));
 
     const mx = reducedMotion ? 0 : mouseRef.current.x;
     const my = reducedMotion ? 0 : mouseRef.current.y;
-    const lerp = reducedMotion ? 0.1 : 1 - Math.exp(-d / 0.18);
+    const lerp = reducedMotion ? 0.1 : 1 - Math.exp(-d / 0.1);
 
-    const posX = targetX + mx * 0.12;
-    const posY = targetY + my * 0.08;
+    const posX = fitRef.current.x + mx * 0.12;
+    const posY = fitRef.current.y + my * 0.08 + parallaxRef.current;
     group.position.x += (posX - group.position.x) * lerp;
     group.position.y += (posY - group.position.y) * lerp;
 
-    const scaleTarget = fitScale * entrance;
+    const scaleTarget = fitRef.current.scale * entrance;
     group.scale.x += (scaleTarget - group.scale.x) * lerp;
     group.scale.y += (scaleTarget - group.scale.y) * lerp;
     group.scale.z += (scaleTarget - group.scale.z) * lerp;

@@ -41,6 +41,7 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
       ['autoRotateZ', 'Auto-rotate Z', -1, 1, 0.02],
       ['baseTiltX', 'Tilt (forward lean)', -0.9, 0.4, 0.02],
       ['baseTiltY', 'Tilt (horizontal)', -0.9, 0.9, 0.02],
+      ['scrollParallax', 'Scroll momentum', 0, 0.5, 0.01],
     ],
   },
   {

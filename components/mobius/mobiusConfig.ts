@@ -20,6 +20,7 @@ export type MobiusConfig = {
   autoRotateZ: number;
   baseTiltX: number;
   baseTiltY: number;
+  scrollParallax: number; // max momentum drift (world units) as you scroll; 0 = off
 
   // Material
   flatShading: boolean;
@@ -89,6 +90,7 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   autoRotateZ: 0,
   baseTiltX: 0,
   baseTiltY: 0.18,
+  scrollParallax: 0.16,
 
   flatShading: true,
   roughness: 0.6,
