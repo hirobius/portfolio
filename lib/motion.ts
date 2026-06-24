@@ -15,6 +15,8 @@ export const motion = {
     reveal: 'expo.out',
   },
   stagger: {
+    /** seconds between adjacent characters in a reveal */
+    char: 0.02,
     /** seconds between adjacent words in a reveal */
     word: 0.05,
   },

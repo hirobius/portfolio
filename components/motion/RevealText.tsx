@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * RevealText — masked, staggered word-rise reveal (cappen-style kinetic type).
+ * RevealText — masked, staggered reveal (cappen-style kinetic type).
  *
- * The text is split into lines (each clipped by an overflow mask) and words; the
- * words rise up from behind the line mask with a stagger and a long ease. Timing
- * comes from the shared motion tokens.
+ * The text is split into lines (each clipped by an overflow mask), words, and
+ * characters; the chosen units (characters by default) rise up from behind the
+ * line mask with a stagger and a long ease. Timing comes from the motion tokens.
  *
  * SSR + FOUC handling: the element ships with a `reveal-armed` class. A tiny
  * head script adds `.js` to <html>, and `.js .reveal-armed { visibility:hidden }`
@@ -21,6 +21,11 @@ import { useGSAP } from '@gsap/react';
 import { motion } from '@/lib/motion';
 
 gsap.registerPlugin(useGSAP, SplitText);
+// The hero shares the main thread with the WebGL möbius. A single long canvas
+// frame would otherwise trip GSAP's lag-smoothing and stall the reveal mid-rise,
+// leaving characters stuck behind their mask. Advancing by real time guarantees
+// the tween always completes (and then reverts to clean text).
+gsap.ticker.lagSmoothing(0);
 
 type RevealTextProps = {
   children: string;
@@ -29,9 +34,17 @@ type RevealTextProps = {
   className?: string;
   /** seconds before this element starts revealing (choreography) */
   delay?: number;
+  /** animate per character (default) or per word */
+  by?: 'chars' | 'words';
 };
 
-export function RevealText({ children, as: Tag = 'span', className, delay = 0 }: RevealTextProps) {
+export function RevealText({
+  children,
+  as: Tag = 'span',
+  className,
+  delay = 0,
+  by = 'chars',
+}: RevealTextProps) {
   const ref = useRef<HTMLElement>(null);
 
   useGSAP(
@@ -50,17 +63,21 @@ export function RevealText({ children, as: Tag = 'span', className, delay = 0 }:
 
       const run = () => {
         if (!ref.current) return;
-        split = new SplitText(el, { type: 'lines,words', mask: 'lines' });
-        // Hide the words behind the line mask, then reveal the container, then
-        // rise — ordered so nothing flashes at its natural position.
-        gsap.set(split.words, { yPercent: 120, opacity: 0 });
+        // Split to chars even for word mode — keeps words intact for wrapping;
+        // we just choose which set animates.
+        split = new SplitText(el, { type: 'lines,words,chars', mask: 'lines' });
+        const targets = by === 'chars' ? split.chars : split.words;
+        const stagger = by === 'chars' ? motion.stagger.char : motion.stagger.word;
+        // Hide the units behind the line mask, reveal the container, then rise —
+        // ordered so nothing flashes at its natural position.
+        gsap.set(targets, { yPercent: 120, opacity: 0 });
         el.classList.remove('reveal-armed');
-        tween = gsap.to(split.words, {
+        tween = gsap.to(targets, {
           yPercent: 0,
           opacity: 1,
           duration: motion.duration.reveal,
           ease: motion.ease.reveal,
-          stagger: motion.stagger.word,
+          stagger,
           delay,
           // Return the DOM to clean, responsive text once revealed.
           onComplete: () => split?.revert(),
