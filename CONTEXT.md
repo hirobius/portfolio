@@ -89,8 +89,8 @@ All inside `MobiusScene.tsx`, ranked clarity-per-risk:
 3. ~~**Material assembly**~~ — **DONE**: `useMobiusMaterial({config, color, isLight, reducedMotion})`
    owns the GLSL + uniforms + param sync + the color/roll animation; returns `{material, innerMaterial}`.
 
-All three cut. `MobiusScene` went **517 → ~296 lines** and is now an orchestrator: it composes the
+All three cut. `MobiusScene` went **517 → ~276 lines** and is now an orchestrator: it composes the
 geometry, the render loop (`useDemandRenderLoop`), the fit (`useAnchorFit`), and the materials
 (`useMobiusMaterial`), and keeps only the entrance + transform choreography. No behavior changed at
-any step (verified each pass). Remaining in `MobiusScene`: the (unused, `envIntensity: 0`) env map —
-a candidate for deletion, not deepening.
+any step (verified each pass). The unused env map (`envIntensity: 0`) has since been **deleted**
+outright — config, tuner control, and PMREM render target.

@@ -15,9 +15,8 @@
  */
 
 import { useMemo, useRef, useEffect } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { useDemandRenderLoop } from './useDemandRenderLoop';
 import { useAnchorFit } from './useAnchorFit';
 import { useMobiusMaterial } from './useMobiusMaterial';
@@ -191,11 +190,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     return (geometry.boundingSphere?.radius ?? 1) * 2;
   }, [geometry]);
 
-  // Procedural room environment (no network) so the glass has something to
-  // reflect/refract — without it, transmission reads as a flat tint.
-  const gl = useThree((s) => s.gl);
-  const scene = useThree((s) => s.scene);
-
   // Entrance: a few warm-up frames (invisible) absorb the first-render hitch (the
   // shader compile + transmission-target build land there), then the canvas fades
   // in via a CSS transition (compositor-driven, so it stays smooth at the capped
@@ -206,20 +200,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   // Render scheduling: throttle the demand loop to TARGET_FPS while the hero is on
   // screen; render nothing once it scrolls away.
   useDemandRenderLoop(active, TARGET_FPS);
-
-  const envTexture = useMemo(() => {
-    const pmrem = new THREE.PMREMGenerator(gl);
-    const tex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmrem.dispose();
-    return tex;
-  }, [gl]);
-  useEffect(() => {
-    scene.environment = envTexture;
-    return () => {
-      if (scene.environment === envTexture) scene.environment = null;
-      envTexture.dispose();
-    };
-  }, [scene, envTexture]);
 
   // Materials: the frosted glass + the inner core — their GLSL, uniforms, config
   // sync, and the color/roll animation are all owned by the hook.
