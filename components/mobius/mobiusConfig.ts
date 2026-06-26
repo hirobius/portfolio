@@ -29,7 +29,6 @@ export type MobiusConfig = {
   // Material
   flatShading: boolean;
   roughness: number;
-  metalness: number;
   emissiveIntensity: number;
 
   // Acrylic / glass
@@ -87,7 +86,6 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
 
   flatShading: true,
   roughness: 0.6,
-  metalness: 0,
   emissiveIntensity: 0,
 
   transmission: 1,

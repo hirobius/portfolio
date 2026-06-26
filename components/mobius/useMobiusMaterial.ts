@@ -142,7 +142,6 @@ export function useMobiusMaterial({ config, color, isLight, reducedMotion }: Arg
 
   // Material params that don't need a recompile (run each render).
   material.roughness = config.roughness;
-  material.metalness = config.metalness;
   material.emissiveIntensity = config.emissiveIntensity;
   material.transmission = config.transmission;
   material.thickness = isLight ? config.thicknessLight : config.thickness;
