@@ -5,17 +5,10 @@
 
 export const site = {
   name: 'Adrian Milsap',
-  role: 'Design Engineer', // primary title — used for metadata + footer
-  // Titles that cycle in the wordmark. Lead with the primary; trim/reorder freely.
-  // More to choose from: 'UI Engineer', 'UI Developer', 'Frontend Engineer',
-  // 'Design Technologist', 'Interface Engineer', 'Prototyper'.
-  roles: [
-    'Design Engineer',
-    'UX Engineer',
-    'Product Engineer',
-    'Creative Technologist',
-    'Forward Deployed Engineer',
-  ],
+  role: 'Design Systems Engineer',
+  // One sharp title for now. To bring back the rotating mix, add more entries:
+  // 'Design Engineer', 'Product Engineer', 'Creative Technologist', etc.
+  roles: ['Design Systems Engineer'],
   email: 'adrian@hirobius.com',
 };
 
@@ -23,19 +16,20 @@ export const site = {
  * Hero copy — editorial headline above the möbius, a quiet line beneath.
  */
 export const hero = {
-  // Editorial display headline (two lines, stacked above the centerpiece).
-  headlineTop: 'I design the system',
-  headlineBottom: 'and build the interface.',
-
-  // Quiet line beneath — the "why" in plain language.
-  tagline: 'Erasing the line between how it looks and how it feels.',
+  headlineTop: 'I build the design systems',
+  headlineBottom: 'teams ship on.',
+  tagline: 'DTCG tokens, a11y enforced in CI, and a library built for AI agents to extend safely.',
 };
 
 /**
- * The "new journey" paragraph that sits above the work grid.
+ * Positioning statement above the work — ownership in plain language.
  */
 export const intro =
-  'I work at the seam where design systems meet AI products — designing the system and building the interface as one continuous surface. This is the start of that work, in the open.';
+  'I build and own the component systems product teams ship on — design tokens as the single source of truth, accessibility treated as engineering, and the React/TypeScript infrastructure underneath.';
+
+/** Quiet proof line beneath the intro. */
+export const credibility =
+  'Ten years behind enterprise design systems, including the Xbox Design System and T-Mobile.';
 
 export type Project = {
   title: string;
@@ -44,6 +38,8 @@ export type Project = {
   kind: string;
   year: string;
   href: string;
+  /** optional supporting detail, rendered as a short list */
+  highlights?: string[];
   /** optional cover image in /public; falls back to a tinted panel */
   cover?: string;
 };
@@ -51,28 +47,38 @@ export type Project = {
 export const projects: Project[] = [
   {
     title: 'Hirobius Design System',
-    blurb:
-      'Tokens, primitives, and the documentation surface — a system designed and built end to end.',
     kind: 'Design System',
-    year: '2025',
-    href: '#',
+    year: '2025 — Present',
+    href: 'https://github.com/hirobius/hirobius-design-system',
+    blurb:
+      'A published, governed component library — 88 components across multiple themes, with DTCG design tokens as the single source of truth, synced to Figma variables and shipped end to end.',
+    highlights: [
+      'Accessibility as engineering: keyboard-trap, focus, and contrast checks automated in CI, alongside visual-regression and responsive suites.',
+      'Built to be safely extended by AI agents — a CLAUDE.md operating contract, an autonomous self-heal loop, and a Figma agent with a token-sync protocol.',
+      'Release hygiene: automated changeset releases, Lighthouse performance budgets, and bundle-size limits enforced in CI.',
+    ],
   },
   {
-    title: 'AI Interface Studies',
-    blurb:
-      'Interaction patterns for AI products — streaming, tool-use, and the moments models meet people.',
-    kind: 'Product / AI',
-    year: '2025',
-    href: '#',
-  },
-  {
-    title: 'Möbius — WebGL Logo Lab',
-    blurb:
-      'A one-sided surface rendered in real time. Shader-driven twist, magnetic cursor response, no rebuilds.',
+    title: 'Möbius — WebGL logo lab',
     kind: 'Creative Engineering',
     year: '2025',
     href: '#',
+    blurb:
+      'The one-sided surface at the top of this page — a shader-driven twist rendered in real time, fit to the layout and tuned to stay light on the main thread.',
   },
+];
+
+/** Quiet capabilities row beneath the work. */
+export const stack = [
+  'React',
+  'TypeScript',
+  'Design Tokens (DTCG)',
+  'Storybook',
+  'Figma',
+  'Vitest',
+  'Playwright',
+  'axe-core / CI',
+  'Azure OpenAI / RAG',
 ];
 
 export const footer = {

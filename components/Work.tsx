@@ -1,4 +1,4 @@
-import { intro, projects } from '@/lib/content';
+import { intro, credibility, projects, stack } from '@/lib/content';
 
 export function Work() {
   return (
@@ -6,6 +6,7 @@ export function Work() {
       <p id="work-intro" className="work__intro">
         {intro}
       </p>
+      <p className="work__cred">{credibility}</p>
 
       <ul className="work__grid">
         {projects.map((project) => (
@@ -26,6 +27,14 @@ export function Work() {
                 <span className="card__title">{project.title}</span>
                 <span className="card__blurb">{project.blurb}</span>
 
+                {project.highlights && (
+                  <ul className="card__points">
+                    {project.highlights.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                )}
+
                 <span className="card__cta" aria-hidden="true">
                   View
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -43,6 +52,11 @@ export function Work() {
           </li>
         ))}
       </ul>
+
+      <div className="work__stack">
+        <span className="work__stack-label">Stack</span>
+        <p className="work__stack-list">{stack.join(' · ')}</p>
+      </div>
     </section>
   );
 }
