@@ -27,9 +27,15 @@ export const hero = {
 export const intro =
   'I build and own the component systems product teams ship on — design tokens as the single source of truth, accessibility treated as engineering, and the React/TypeScript infrastructure underneath.';
 
-/** Quiet proof line beneath the intro. */
-export const credibility =
-  'Ten years behind enterprise design systems, including the Xbox Design System and T-Mobile.';
+/**
+ * "Brands I've worked with" — the experience story told by company, not a dated
+ * timeline. Add more names freely; they render as a clean row.
+ */
+export const brands = {
+  heading: "Some of the brands I've worked with",
+  note: 'Ten years in enterprise design systems.',
+  items: ['Xbox Design System', 'T-Mobile'],
+};
 
 export type Project = {
   title: string;

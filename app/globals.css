@@ -328,7 +328,7 @@ body {
 
 .work__intro {
   max-width: 40ch;
-  margin-bottom: 1rem;
+  margin-bottom: clamp(2.75rem, 8vh, 5.5rem);
   font-family: var(--font-display);
   font-weight: 400;
   font-size: clamp(1.4rem, 3vw, 2.15rem);
@@ -337,12 +337,49 @@ body {
   text-wrap: balance;
 }
 
-.work__cred {
-  max-width: 52ch;
-  margin-bottom: clamp(2.5rem, 7vh, 5rem);
+.work__eyebrow {
+  margin-bottom: 1.5rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-muted);
-  font-size: 0.98rem;
-  line-height: 1.55;
+}
+
+/* "Some of the brands I've worked with" — experience as a name strip. */
+.brands {
+  margin-top: clamp(3rem, 8vh, 5.5rem);
+  padding-top: clamp(1.75rem, 4vh, 2.5rem);
+  border-top: 1px solid var(--line);
+}
+
+.brands__heading {
+  margin-bottom: clamp(1.25rem, 3vh, 2rem);
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+  letter-spacing: -0.01em;
+}
+
+.brands__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: clamp(1.25rem, 4vw, 3rem);
+}
+
+.brands__item {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+  letter-spacing: -0.01em;
+  color: var(--text-muted);
+}
+
+.brands__note {
+  margin-top: clamp(1rem, 2.5vh, 1.5rem);
+  font-size: 0.92rem;
+  color: var(--text-muted);
 }
 
 .work__grid {
