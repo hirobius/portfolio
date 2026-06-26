@@ -54,25 +54,27 @@ export function Work() {
         ))}
       </ul>
 
-      <section className="sketchbook" aria-labelledby="sketchbook-heading">
-        <h2 id="sketchbook-heading" className="sketchbook__heading">
-          {sketches.heading}
-        </h2>
-        <p className="sketchbook__lead">{sketches.lead}</p>
-        <ul className="sketchbook__grid">
-          {sketches.items.map((sketch) => (
-            <li key={sketch.title} className="sketch">
-              <a className="sketch__link" href={sketch.href}>
-                <span className="sketch__title">{sketch.title}</span>
-                <span className="sketch__blurb">{sketch.blurb}</span>
-                <span className="sketch__arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {sketches.items.length > 0 && (
+        <section className="sketchbook" aria-labelledby="sketchbook-heading">
+          <h2 id="sketchbook-heading" className="sketchbook__heading">
+            {sketches.heading}
+          </h2>
+          <p className="sketchbook__lead">{sketches.lead}</p>
+          <ul className="sketchbook__grid">
+            {sketches.items.map((sketch) => (
+              <li key={sketch.title} className="sketch">
+                <a className="sketch__link" href={sketch.href}>
+                  <span className="sketch__title">{sketch.title}</span>
+                  <span className="sketch__blurb">{sketch.blurb}</span>
+                  <span className="sketch__arrow" aria-hidden="true">
+                    ↗
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="work__stack">
         <span className="work__stack-label">Stack</span>

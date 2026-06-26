@@ -73,20 +73,16 @@ export const projects: Project[] = [
   },
 ];
 
+type Sketch = { title: string; blurb: string; href: string };
+
 /**
- * Sketchbook — lighter-weight interactive experiments. Dump more here freely;
- * each is just { title, blurb, href }, no case study required.
+ * Sketchbook — lighter-weight interactive experiments. Dump entries here; the
+ * section only renders once it has at least one. Each is { title, blurb, href }.
  */
-export const sketches = {
+export const sketches: { heading: string; lead: string; items: Sketch[] } = {
   heading: 'Sketchbook',
   lead: 'Interactive experiments and creative-engineering bits.',
-  items: [
-    {
-      title: 'Möbius',
-      blurb: 'A one-sided surface twisted in real time — the shape at the top of this page.',
-      href: '#top',
-    },
-  ],
+  items: [],
 };
 
 /** Engineering-scoped tools row — no comms tools (Slack/Teams/Discord left off). */
