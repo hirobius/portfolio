@@ -9,6 +9,7 @@ export const site = {
   // One sharp title for now. To bring back the rotating mix, add more entries:
   // 'Design Engineer', 'Product Engineer', 'Creative Technologist', etc.
   roles: ['Design Systems Engineer'],
+  location: 'Spokane, WA',
   email: 'adrian@hirobius.com',
 };
 
@@ -19,6 +20,21 @@ export const hero = {
   headlineTop: 'I build the design systems',
   headlineBottom: 'teams ship on.',
   tagline: 'DTCG tokens, a11y enforced in CI, and a library built for AI agents to extend safely.',
+  // Grounding line beneath the hero (role · location).
+  meta: 'Design Systems Engineer · Spokane, WA',
+};
+
+/**
+ * Closing "Let's connect" CTA. Links are placeholders — fill in your real URLs.
+ */
+export const contact = {
+  heading: "Let's connect",
+  line: 'Building a design system, or just want to talk shop? Reach out.',
+  links: [
+    { label: 'Email', href: 'mailto:adrian@hirobius.com' },
+    { label: 'LinkedIn', href: '#' }, // TODO: add your LinkedIn URL
+    { label: 'GitHub', href: 'https://github.com/hirobius' }, // TODO: confirm handle
+  ],
 };
 
 /**

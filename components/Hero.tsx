@@ -20,6 +20,8 @@ export function Hero() {
       <Reveal as="p" className="hero__tagline" delay={sequence.tagline}>
         {hero.tagline}
       </Reveal>
+
+      <p className="hero__meta">{hero.meta}</p>
     </section>
   );
 }

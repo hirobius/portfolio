@@ -317,6 +317,35 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* Grounding line — role · location, entering just after the tagline. */
+.hero__meta {
+  margin-top: clamp(0.9rem, 2vh, 1.4rem);
+  position: relative;
+  z-index: 2;
+  font-size: clamp(0.85rem, 1.4vw, 1rem);
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  animation: hero-meta-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 1.25s;
+}
+
+@keyframes hero-meta-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__meta {
+    animation: none;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    Work — intro statement + project grid
    ───────────────────────────────────────────────────────────────────────── */
@@ -520,6 +549,62 @@ body {
   color: var(--text-muted);
   font-size: 0.95rem;
   line-height: 1.65;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Connect — closing CTA
+   ───────────────────────────────────────────────────────────────────────── */
+.connect {
+  position: relative;
+  z-index: 1;
+  padding-block: clamp(3.5rem, 11vh, 7.5rem);
+  border-top: 1px solid var(--line);
+}
+
+.connect__heading {
+  margin-bottom: 0.85rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: -0.02em;
+}
+
+.connect__line {
+  max-width: 42ch;
+  margin-bottom: clamp(1.6rem, 4vh, 2.5rem);
+  color: var(--text-muted);
+  font-size: clamp(1rem, 1.8vw, 1.2rem);
+  line-height: 1.5;
+}
+
+.connect__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(1.25rem, 3vw, 2.25rem);
+}
+
+.connect__link {
+  position: relative;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.05rem;
+}
+
+.connect__link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.connect__link:hover::after {
+  transform: scaleX(1);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

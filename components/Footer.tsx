@@ -6,7 +6,9 @@ export function Footer() {
       <span className="footer__name">
         {site.name} — {site.role}
       </span>
-      <span className="footer__note">{footer.note}</span>
+      <span className="footer__note">
+        {site.location} · {footer.note}
+      </span>
     </footer>
   );
 }
