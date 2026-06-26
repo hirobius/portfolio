@@ -46,8 +46,9 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 | `lib/content.ts` | named data exports | deep — one source for all copy |
 | `components/motion/Reveal.tsx` | `<Reveal delay>{text}</Reveal>` | **deep** — hides split + SSR markup + a11y + CSS handoff |
 | `buildMobiusTube` (in MobiusScene) | `(config) → BufferGeometry` | **deep** — gnarly geometry behind one argument |
+| `components/mobius/useDemandRenderLoop.ts` | `(active, fps)` | **deep** — owns demand-mode rAF + throttle |
 | `components/mobius/Mobius.tsx` | `<Mobius config />` | adapter — DOM / theme / cursor / observer glue |
-| `components/mobius/MobiusScene.tsx` | R3F props | **god module** (517 lines) — the rework target |
+| `components/mobius/MobiusScene.tsx` | R3F props | **god module** (~500 lines) — the rework target |
 | view components (Hero / Work / Connect / …) | props / none | appropriately thin |
 | `components/mobius/MobiusTuner.tsx` | `?tune` only | dev-only, off the production path |
 
@@ -80,8 +81,7 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 
 All inside `MobiusScene.tsx`, ranked clarity-per-risk:
 
-1. **Render scheduling** — the throttled rAF loop → a `useDemandRenderLoop(active, fps)`
-   deep hook (hides rAF lifecycle + timestamp throttling).
+1. ~~**Render scheduling**~~ — **DONE**: extracted to `useDemandRenderLoop(active, fps)`.
 2. **Anchor fit** — measure → unproject → scale, currently smeared across the
    `useFrame` body and a resize effect → a deep module returning `{ position, scale }`.
 3. **Material assembly** — `MeshPhysicalMaterial` + `onBeforeCompile` GLSL + ~8
