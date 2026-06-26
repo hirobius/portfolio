@@ -10,7 +10,7 @@ export const site = {
   // 'Design Engineer', 'Product Engineer', 'Creative Technologist', etc.
   roles: ['Design Systems Engineer'],
   location: 'Spokane, WA',
-  email: 'adrian@hirobius.com',
+  email: 'adrian.milsap@gmail.com',
 };
 
 /**
@@ -25,33 +25,13 @@ export const hero = {
 };
 
 /**
- * Closing "Let's connect" CTA. Links are placeholders — fill in your real URLs.
- */
-export const contact = {
-  heading: "Let's connect",
-  line: 'Building a design system, or just want to talk shop? Reach out.',
-  links: [
-    { label: 'Email', href: 'mailto:adrian@hirobius.com' },
-    { label: 'LinkedIn', href: '#' }, // TODO: add your LinkedIn URL
-    { label: 'GitHub', href: 'https://github.com/hirobius' }, // TODO: confirm handle
-  ],
-};
-
-/**
  * Positioning statement above the work — ownership in plain language.
  */
 export const intro =
   'I build and own the component systems product teams ship on — design tokens as the single source of truth, accessibility treated as engineering, and the React/TypeScript infrastructure underneath.';
 
-/**
- * "Brands I've worked with" — the experience story told by company, not a dated
- * timeline. Add more names freely; they render as a clean row.
- */
-export const brands = {
-  heading: "Some of the brands I've worked with",
-  note: 'Ten years in enterprise design systems.',
-  items: ['Xbox Design System', 'T-Mobile'],
-};
+/** Brand-free seniority signal beneath the intro. */
+export const credibility = 'Ten years in enterprise design systems.';
 
 export type Project = {
   title: string;
@@ -73,12 +53,23 @@ export const projects: Project[] = [
     year: '2025 — Present',
     href: 'https://github.com/hirobius/hirobius-design-system',
     blurb:
-      'A published, governed component library — 88 components across multiple themes, with DTCG design tokens as the single source of truth, synced to Figma variables and shipped end to end.',
-    highlights: [
-      'Accessibility as engineering: keyboard-trap, focus, and contrast checks automated in CI, alongside visual-regression and responsive suites.',
-      'Built to be safely extended by AI agents — a CLAUDE.md operating contract, an autonomous self-heal loop, and a Figma agent with a token-sync protocol.',
-      'Release hygiene: automated changeset releases, Lighthouse performance budgets, and bundle-size limits enforced in CI.',
-    ],
+      'A published, governed component library — 88 components, multi-theme, with DTCG tokens as the single source of truth and Figma sync. Accessibility runs in CI, and the library is built to be safely extended by AI agents.',
+  },
+  {
+    title: 'Job Hunt Jade',
+    kind: 'Product · Design System',
+    year: '2025',
+    href: 'https://job-hunt-jade.vercel.app/',
+    blurb:
+      'A focused job-search workspace — an application board for tracking roles end to end, built on its own small design system, with written case studies on the product and the system.',
+  },
+  {
+    title: 'Veteran Resource Navigator',
+    kind: 'Product · Accessibility',
+    year: '2025',
+    href: 'https://veteran-resource-navigator.vercel.app/',
+    blurb:
+      'An accessible navigator that helps veterans find and reach the benefits and resources they qualify for.',
   },
   {
     title: 'Möbius — WebGL logo lab',
@@ -90,19 +81,35 @@ export const projects: Project[] = [
   },
 ];
 
-/** Quiet capabilities row beneath the work. */
+/** Engineering-scoped tools row — no comms tools (Slack/Teams/Discord left off). */
 export const stack = [
   'React',
   'TypeScript',
+  'Node.js',
   'Design Tokens (DTCG)',
-  'Storybook',
   'Figma',
+  'Storybook',
   'Vitest',
   'Playwright',
   'axe-core / CI',
-  'Azure OpenAI / RAG',
+  'Vercel',
+  'GitHub Actions',
+  'LLMs (Claude, GPT, Gemini)',
 ];
 
 export const footer = {
   note: 'Built in the open.',
+};
+
+/**
+ * Closing "Let's connect" CTA.
+ */
+export const contact = {
+  heading: "Let's connect",
+  line: 'Building a design system, or just want to talk shop? Reach out.',
+  links: [
+    { label: 'Email', href: 'mailto:adrian.milsap@gmail.com' },
+    { label: 'LinkedIn', href: 'https://www.linkedin.com/in/adrianmilsap' },
+    { label: 'GitHub', href: 'https://github.com/hirobius' },
+  ],
 };

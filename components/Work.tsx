@@ -1,4 +1,4 @@
-import { intro, brands, projects, stack } from '@/lib/content';
+import { intro, credibility, projects, stack } from '@/lib/content';
 
 export function Work() {
   return (
@@ -6,6 +6,7 @@ export function Work() {
       <p id="work-intro" className="work__intro">
         {intro}
       </p>
+      <p className="work__cred">{credibility}</p>
 
       <h2 className="work__eyebrow">Selected work</h2>
       <ul className="work__grid">
@@ -52,18 +53,6 @@ export function Work() {
           </li>
         ))}
       </ul>
-
-      <section className="brands" aria-label={brands.heading}>
-        <h2 className="brands__heading">{brands.heading}</h2>
-        <ul className="brands__list">
-          {brands.items.map((name) => (
-            <li key={name} className="brands__item">
-              {name}
-            </li>
-          ))}
-        </ul>
-        <p className="brands__note">{brands.note}</p>
-      </section>
 
       <div className="work__stack">
         <span className="work__stack-label">Stack</span>
