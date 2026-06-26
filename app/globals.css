@@ -384,7 +384,7 @@ body {
 
 .work__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: clamp(1.5rem, 3vw, 2.75rem) clamp(1.25rem, 2.5vw, 2.5rem);
   align-items: start;
 }
@@ -496,6 +496,68 @@ body {
 
 .card__link:hover .card__cta svg {
   transform: translate(2px, -2px);
+}
+
+/* Sketchbook — lighter interactive experiments (no covers, smaller tiles). */
+.sketchbook {
+  margin-top: clamp(3rem, 8vh, 5.5rem);
+  padding-top: clamp(1.75rem, 4vh, 2.5rem);
+  border-top: 1px solid var(--line);
+}
+
+.sketchbook__heading {
+  margin-bottom: 0.3rem;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+  letter-spacing: -0.01em;
+}
+
+.sketchbook__lead {
+  margin-bottom: clamp(1.5rem, 3.5vh, 2.25rem);
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.sketchbook__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: clamp(1rem, 2.5vw, 1.5rem);
+}
+
+.sketch__link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  height: 100%;
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  transition: border-color 0.3s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sketch__link:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-3px);
+}
+
+.sketch__title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+}
+
+.sketch__blurb {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.sketch__arrow {
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 /* Quiet capabilities row beneath the work. */

@@ -71,15 +71,23 @@ export const projects: Project[] = [
     blurb:
       'An accessible navigator that helps veterans find and reach the benefits and resources they qualify for.',
   },
-  {
-    title: 'Möbius — WebGL logo lab',
-    kind: 'Creative Engineering',
-    year: '2025',
-    href: '#',
-    blurb:
-      'The one-sided surface at the top of this page — a shader-driven twist rendered in real time, fit to the layout and tuned to stay light on the main thread.',
-  },
 ];
+
+/**
+ * Sketchbook — lighter-weight interactive experiments. Dump more here freely;
+ * each is just { title, blurb, href }, no case study required.
+ */
+export const sketches = {
+  heading: 'Sketchbook',
+  lead: 'Interactive experiments and creative-engineering bits.',
+  items: [
+    {
+      title: 'Möbius',
+      blurb: 'A one-sided surface twisted in real time — the shape at the top of this page.',
+      href: '#top',
+    },
+  ],
+};
 
 /** Engineering-scoped tools row — no comms tools (Slack/Teams/Discord left off). */
 export const stack = [
