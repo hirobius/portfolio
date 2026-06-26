@@ -92,5 +92,7 @@ All inside `MobiusScene.tsx`, ranked clarity-per-risk:
 All three cut. `MobiusScene` went **517 → ~296 lines** and is now an orchestrator: it composes the
 geometry, the render loop (`useDemandRenderLoop`), the fit (`useAnchorFit`), and the materials
 (`useMobiusMaterial`), and keeps only the entrance + transform choreography. No behavior changed at
-any step (verified each pass). Remaining in `MobiusScene`: the (unused, `envIntensity: 0`) env map —
-a candidate for deletion, not deepening.
+any step (verified each pass). Note: the env map *looks* unused (`envIntensity: 0`) but is
+**load-bearing** — `scene.environment` feeds the transmission glass's IBL even at intensity 0 (a
+three.js quirk the software renderer here can't show). It was deleted, looked wrong on a real GPU,
+and restored. Keep it.

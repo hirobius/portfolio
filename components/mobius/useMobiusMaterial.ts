@@ -147,7 +147,6 @@ export function useMobiusMaterial({ config, color, isLight, reducedMotion }: Arg
   material.transmission = config.transmission;
   material.thickness = isLight ? config.thicknessLight : config.thickness;
   material.ior = config.ior;
-  material.iridescence = config.iridescence;
   material.envMapIntensity = config.envIntensity;
   // tint 0 => no attenuation (clear); higher => shorter distance => stronger color.
   material.attenuationDistance = config.tint > 0.001 ? 0.1 + (1 - config.tint) * 1.9 : Infinity;
