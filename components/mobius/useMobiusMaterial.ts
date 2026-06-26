@@ -43,7 +43,6 @@ export function useMobiusMaterial({ config, color, isLight, reducedMotion }: Arg
   const material = useMemo(() => {
     const m = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(color),
-      emissive: new THREE.Color(color),
       side: THREE.DoubleSide,
     });
     m.onBeforeCompile = (shader) => {
@@ -142,7 +141,6 @@ export function useMobiusMaterial({ config, color, isLight, reducedMotion }: Arg
 
   // Material params that don't need a recompile (run each render).
   material.roughness = config.roughness;
-  material.emissiveIntensity = config.emissiveIntensity;
   material.transmission = config.transmission;
   material.thickness = isLight ? config.thicknessLight : config.thickness;
   material.ior = config.ior;
@@ -173,7 +171,6 @@ export function useMobiusMaterial({ config, color, isLight, reducedMotion }: Arg
     currentColor.current.lerp(targetColor.current, 1 - Math.exp(-d / 0.2));
     material.color.setRGB(1, 1, 1);
     material.attenuationColor.copy(currentColor.current);
-    material.emissive.copy(currentColor.current);
     const cfg = cfgRef.current;
     phase.current.value += (reducedMotion ? cfg.rollSpeed * 0.3 : cfg.rollSpeed) * d;
   });

@@ -55,7 +55,6 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
       ['ior', 'IOR (refraction)', 1, 2.33, 0.01],
       ['tint', 'Color tint (0=clear)', 0, 1, 0.02],
       ['envIntensity', 'Reflections', 0, 2, 0.05],
-      ['emissiveIntensity', 'Inner glow', 0, 0.3, 0.01],
     ],
   },
   {
