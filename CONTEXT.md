@@ -48,8 +48,9 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 | `buildMobiusTube` (in MobiusScene) | `(config) → BufferGeometry` | **deep** — gnarly geometry behind one argument |
 | `components/mobius/useDemandRenderLoop.ts` | `(active, fps)` | **deep** — owns demand-mode rAF + throttle |
 | `components/mobius/useAnchorFit.ts` | `(selector, outerDiameter) → ref` | **deep** — DOM box → world transform + dirty mgmt |
+| `components/mobius/useMobiusMaterial.ts` | `({config, color, …}) → {material, innerMaterial}` | **deep** — GLSL + uniforms + sync + color/roll |
 | `components/mobius/Mobius.tsx` | `<Mobius config />` | adapter — DOM / theme / cursor / observer glue |
-| `components/mobius/MobiusScene.tsx` | R3F props | **god module** (~440 lines) — the rework target |
+| `components/mobius/MobiusScene.tsx` | R3F props | orchestrator (~300 lines) — composes the deep modules |
 | view components (Hero / Work / Connect / …) | props / none | appropriately thin |
 | `components/mobius/MobiusTuner.tsx` | `?tune` only | dev-only, off the production path |
 
@@ -85,6 +86,11 @@ All inside `MobiusScene.tsx`, ranked clarity-per-risk:
 1. ~~**Render scheduling**~~ — **DONE**: `useDemandRenderLoop(active, fps)`.
 2. ~~**Anchor fit**~~ — **DONE**: `useAnchorFit(selector, outerDiameter)` returns a base
    `{ x, y, scale }` ref; the frame loop composes it with parallax / config scale / tilt.
-3. **Material assembly** — `MeshPhysicalMaterial` + `onBeforeCompile` GLSL + ~8
-   uniform refs + per-render param sync → a `useMobiusMaterial(config, …)`. Deepest
-   payoff, biggest job, most locality risk.
+3. ~~**Material assembly**~~ — **DONE**: `useMobiusMaterial({config, color, isLight, reducedMotion})`
+   owns the GLSL + uniforms + param sync + the color/roll animation; returns `{material, innerMaterial}`.
+
+All three cut. `MobiusScene` went **517 → ~296 lines** and is now an orchestrator: it composes the
+geometry, the render loop (`useDemandRenderLoop`), the fit (`useAnchorFit`), and the materials
+(`useMobiusMaterial`), and keeps only the entrance + transform choreography. No behavior changed at
+any step (verified each pass). Remaining in `MobiusScene`: the (unused, `envIntensity: 0`) env map —
+a candidate for deletion, not deepening.
