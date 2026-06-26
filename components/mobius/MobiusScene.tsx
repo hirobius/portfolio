@@ -19,6 +19,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { useDemandRenderLoop } from './useDemandRenderLoop';
+import { useAnchorFit } from './useAnchorFit';
 import type { MobiusConfig } from './mobiusConfig';
 
 type Props = {
@@ -360,36 +361,10 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     targetColor.current.set(color);
   }, [color]);
 
-  const anchorRef = useRef<HTMLElement | null>(null);
-  const scratchVec = useRef(new THREE.Vector3());
-  const scratchDir = useRef(new THREE.Vector3());
-
-  // Fit (size + glued base position) is measured only on mount / resize /
-  // geometry change — never during scroll. Once set, the shape has fixed
-  // dimensions and a fixed position; the canvas scrolls with the page on the
-  // compositor, so it stays glued to the hero with zero per-scroll JS.
-  const fitRef = useRef({ scale: 0.5, x: 0, y: 0 });
-  const needsFitRef = useRef(true);
-
-  useEffect(() => {
-    const markDirty = () => {
-      needsFitRef.current = true;
-    };
-    // Only genuine layout changes refit — never a plain scroll. (On mobile the
-    // address bar can fire 'resize', but with svh units the measured values are
-    // unchanged, so it's a no-op.) The webfont swap reflows the hero once.
-    window.addEventListener('resize', markDirty);
-    window.addEventListener('orientationchange', markDirty);
-    if (document.fonts?.ready) document.fonts.ready.then(markDirty).catch(() => {});
-    return () => {
-      window.removeEventListener('resize', markDirty);
-      window.removeEventListener('orientationchange', markDirty);
-    };
-  }, []);
-  // Re-fit when the geometry size changes (tuner edits).
-  useEffect(() => {
-    needsFitRef.current = true;
-  }, [outerDiameter]);
+  // Fit: glue the shape to the hero's [data-mobius-anchor] box. Returns a base
+  // transform { x, y, scale } re-measured only on layout changes (see hook); the
+  // frame loop below composes it with parallax, the config scale, and tilt.
+  const fitRef = useAnchorFit(ANCHOR_SELECTOR, outerDiameter);
 
   useFrame((state, delta) => {
     const group = groupRef.current;
@@ -397,7 +372,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     const cfg = cfgRef.current;
 
     const d = Math.min(delta, 0.033);
-    const camera = state.camera as THREE.PerspectiveCamera;
 
     // Color — clear glass: a white surface, with the theme color carried as the
     // transmission tint (light through the glass picks it up) + a faint glow.
@@ -420,38 +394,6 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
         const canvas = state.gl.domElement;
         canvas.style.transition = 'opacity 0.6s ease-out';
         canvas.style.opacity = '1';
-      }
-    }
-
-    // ── Fit: measured only when flagged (mount / resize / geometry change), so
-    //    nothing rescales or shifts during a scroll. The canvas scrolls with the
-    //    page (absolute), so the anchor's offset within it — and thus this base
-    //    position — is scroll-invariant. ──
-    if (needsFitRef.current) {
-      let anchor = anchorRef.current;
-      if (!anchor || !document.body.contains(anchor)) {
-        anchor = document.querySelector<HTMLElement>(ANCHOR_SELECTOR);
-        anchorRef.current = anchor;
-      }
-      if (anchor) {
-        const vw = Math.max(state.size.width, 1);
-        const vh = Math.max(state.size.height, 1);
-        const visibleHeight =
-          2 * Math.abs(camera.position.z) * Math.tan(((camera.fov * Math.PI) / 180) / 2);
-        const rect = anchor.getBoundingClientRect();
-        const canvasRect = state.gl.domElement.getBoundingClientRect();
-        const centerX = rect.left - canvasRect.left + rect.width / 2;
-        const centerY = rect.top - canvasRect.top + rect.height / 2;
-        const ndcX = (centerX / vw) * 2 - 1;
-        const ndcY = -(centerY / vh) * 2 + 1;
-        scratchVec.current.set(ndcX, ndcY, 0.5).unproject(camera);
-        scratchDir.current.copy(scratchVec.current).sub(camera.position).normalize();
-        const t = (0 - camera.position.z) / scratchDir.current.z;
-        fitRef.current.x = camera.position.x + scratchDir.current.x * t;
-        fitRef.current.y = camera.position.y + scratchDir.current.y * t;
-        const bandWorldHeight = (rect.height / vh) * visibleHeight;
-        fitRef.current.scale = Math.max(0.15, Math.min((bandWorldHeight * 0.95) / outerDiameter, 1.1));
-        needsFitRef.current = false;
       }
     }
 
