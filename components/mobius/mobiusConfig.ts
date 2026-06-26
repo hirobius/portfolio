@@ -38,6 +38,7 @@ export type MobiusConfig = {
   thicknessLight: number; // refraction depth on the light theme
   ior: number; // index of refraction
   iridescence: number; // soft oily sheen on the glass
+  envIntensity: number; // strength of the reflected environment (glass sparkle)
   tint: number; // 0 = clear/colorless glass, 1 = strongly colored
   glassOpacity: number; // 1 = solid, lower = see the inner core through the frosted shell
 
@@ -95,6 +96,7 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   thicknessLight: 0.3,
   ior: 1.32,
   iridescence: 0,
+  envIntensity: 0,
   tint: 1,
   glassOpacity: 1,
 
