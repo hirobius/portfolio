@@ -121,12 +121,24 @@ const TAB_LABEL: Record<string, string> = {
 };
 const tabLabel = (title: string) => TAB_LABEL[title] ?? title;
 
+// Which material a tab previews. Material-specific tabs switch the live preview so
+// you see what you're tuning; shared tabs (geometry/motion/color) leave it as-is.
+const TAB_VARIANT: Record<string, 'glass' | 'lite'> = {
+  'Acrylic glass': 'glass',
+  'Color core': 'glass',
+  'Inner shape': 'glass',
+  'Lite fallback': 'lite',
+};
+
 export function MobiusTuner({
   config,
   onChange,
+  onPreviewVariant,
 }: {
   config: MobiusConfig;
   onChange: (next: MobiusConfig) => void;
+  // Switch the live preview material when a material-specific tab is selected.
+  onPreviewVariant?: (variant: 'glass' | 'lite') => void;
 }) {
   // Hidden by default — ?tune shows just the ⚙ FAB; click it to open the panel.
   const [open, setOpen] = useState(false);
@@ -190,7 +202,11 @@ export function MobiusTuner({
               <button
                 key={s.title}
                 className={'mbx-tab' + (s.title === tab ? ' on' : '')}
-                onClick={() => setTab(s.title)}
+                onClick={() => {
+                  setTab(s.title);
+                  const v = TAB_VARIANT[s.title];
+                  if (v) onPreviewVariant?.(v);
+                }}
               >
                 {tabLabel(s.title)}
               </button>

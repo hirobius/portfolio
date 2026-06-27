@@ -43,7 +43,15 @@ function bgIsLight(hex: string): boolean {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5;
 }
 
-export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConfig }) {
+export function Mobius({
+  config = DEFAULT_MOBIUS_CONFIG,
+  variantOverride,
+}: {
+  config?: MobiusConfig;
+  // Tuner-only: force the previewed material regardless of the device tier, so the
+  // Lite tab actually shows lite (and the glass tabs show glass) on any device.
+  variantOverride?: 'glass' | 'lite';
+}) {
   const mouseRef = useRef({ x: 0, y: 0 });
   const [color, setColor] = useState(MOBIUS_BASE_COLOR);
   const [isLight, setIsLight] = useState(false);
@@ -113,8 +121,13 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
   // No functional WebGL — skip the canvas entirely (the möbius is decorative).
   if (tier === 'none') return null;
 
-  // Fidelity knobs for this device tier (same glass look, scaled internals).
-  const quality = qualityForTier(tier);
+  // The tuner can override which material previews; otherwise use the device tier.
+  // (Glass override previews at full fidelity so the look is true while tuning.)
+  const effectiveTier: Exclude<MobiusTier, 'none'> =
+    variantOverride === 'lite' ? 'lite' : variantOverride === 'glass' ? 'glass-high' : tier;
+
+  // Fidelity knobs for this tier (same glass look, scaled internals).
+  const quality = qualityForTier(effectiveTier);
 
   return (
     <Canvas

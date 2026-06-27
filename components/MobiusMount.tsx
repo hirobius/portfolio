@@ -18,6 +18,8 @@ const MobiusTuner = dynamic(() => import('./mobius/MobiusTuner').then((m) => m.M
 export function MobiusMount() {
   const [config, setConfig] = useState<MobiusConfig>(DEFAULT_MOBIUS_CONFIG);
   const [showTuner, setShowTuner] = useState(false);
+  // Tuner-driven preview material (null = follow the device tier).
+  const [previewVariant, setPreviewVariant] = useState<'glass' | 'lite' | null>(null);
 
   useEffect(() => {
     setShowTuner(new URLSearchParams(window.location.search).has('tune'));
@@ -27,10 +29,12 @@ export function MobiusMount() {
     <>
       <div className="mobius-layer" aria-hidden="true">
         <MobiusErrorBoundary>
-          <Mobius config={config} />
+          <Mobius config={config} variantOverride={previewVariant ?? undefined} />
         </MobiusErrorBoundary>
       </div>
-      {showTuner && <MobiusTuner config={config} onChange={setConfig} />}
+      {showTuner && (
+        <MobiusTuner config={config} onChange={setConfig} onPreviewVariant={setPreviewVariant} />
+      )}
     </>
   );
 }
