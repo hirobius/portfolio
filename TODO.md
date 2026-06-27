@@ -39,3 +39,12 @@ Open action items for the portfolio. Done work lives in git history / `CONTEXT.m
 
 - [ ] **Fallback image weight** — `public/mobius-fallback.png` is ~320 KB; a WebP is
       ~half. Only loads on low-power devices, so minor.
+
+## After launch-hygiene cleanup
+
+- [ ] **Architecture scrub** (Matt Pocock `improve-codebase-architecture` skill) —
+      best run once the möbius reaches its launch shape, i.e. **after** the `?tune`
+      tuner + `variantOverride` preview plumbing are removed. Known seams to consider
+      then: consolidate the tier/mode/URL-param resolution split across
+      `capability.ts` and `Mobius.tsx` (`resolveTier`); fold `MobiusScene`'s render
+      knobs (variant/fps/transmissionResolution) into one object to slim its props.
