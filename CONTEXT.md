@@ -30,7 +30,14 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 - **Fit** — sizing + positioning the möbius to its **anchor**, the
   `[data-mobius-anchor]` box in the hero. Measured from the DOM, not hard-coded.
 - **Demand loop** — the möbius drives its own renders (`frameloop="demand"` +
-  `invalidate()`), throttled to `TARGET_FPS`.
+  `invalidate()`), throttled to the device tier's target fps.
+- **Tier / Quality** — `detectMobiusTier()` probes WebGL once, up front, and picks
+  `glass-high | glass-low | lite | none`; `qualityForTier()` maps that to the
+  fidelity knobs (transmission resolution, dpr cap, fps). Same glass *look* on every
+  real GPU — only the internals scale. See `capability.ts`.
+- **Lite** — the degraded fallback material (`useMobiusMaterialLite`): a cheap
+  fresnel-emissive shell, no transmission / inner mesh / env. Used only on software
+  rasterizers (no real GPU), where the glass is too slow.
 - **Active** — a render-gate from an IntersectionObserver; when false, nothing
   renders (the hero is offscreen).
 - **Entrance** — warm-up frames (absorb the first-render hitch) then a CSS opacity
@@ -49,7 +56,9 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 | `components/mobius/useDemandRenderLoop.ts` | `(active, fps)` | **deep** — owns demand-mode rAF + throttle |
 | `components/mobius/useAnchorFit.ts` | `(selector, outerDiameter) → ref` | **deep** — DOM box → world transform + dirty mgmt |
 | `components/mobius/useMobiusMaterial.ts` | `({config, color, …}) → {material, innerMaterial}` | **deep** — GLSL + uniforms + sync + color/roll |
-| `components/mobius/Mobius.tsx` | `<Mobius config />` | adapter — DOM / theme / cursor / observer glue |
+| `components/mobius/useMobiusMaterialLite.ts` | `({config, color, reducedMotion}) → {material}` | **deep** — the fallback fresnel shell + roll |
+| `components/mobius/capability.ts` | `detectMobiusTier()` · `qualityForTier(tier)` | **deep** — GPU probe → tier → fidelity knobs |
+| `components/mobius/Mobius.tsx` | `<Mobius config />` | adapter — DOM / theme / cursor / observer / tier glue |
 | `components/mobius/MobiusScene.tsx` | R3F props | orchestrator (~300 lines) — composes the deep modules |
 | view components (Hero / Work / Connect / …) | props / none | appropriately thin |
 | `components/mobius/MobiusTuner.tsx` | `?tune` only | dev-only, off the production path |
@@ -58,7 +67,9 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 
 - **DOM / theme ⇄ Mobius** — the `--mobius-color` CSS var, reduced-motion, and the
   `[data-mobius-anchor]` element.
-- **Mobius ⇄ MobiusScene** — props (`color`, `reducedMotion`, `isLight`, `active`, `config`).
+- **Mobius ⇄ MobiusScene** — props (`color`, `reducedMotion`, `isLight`, `active`, `config`, `variant`, `fps`).
+- **Capability ⇄ Mobius** — the up-front GPU probe picks the tier before the canvas
+  mounts; `?glass` / `?glasslow` / `?lite` force a tier for per-device testing.
 - **MobiusScene ⇄ DOM** — reads the anchor rect; writes the canvas opacity.
 - **Config ⇄ MobiusScene** — live tuner edits via `cfgRef` + a per-render sync.
 - **content ⇄ views** — data → markup.
@@ -67,8 +78,12 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 
 1. **Möbius scrolls with the page on the compositor** (absolute canvas, `svh`
    units) — no per-frame scroll JS. Reversing reintroduces scroll jank.
-2. **Demand loop capped at `TARGET_FPS` (~38)** — transmission is too costly to run
-   at full refresh.
+2. **Demand loop capped at the tier's fps (~30–38)** — transmission is too costly to
+   run at full refresh; weaker tiers cap lower.
+2a. **Capability tiering keeps the *same glass look* on every real GPU**, scaling only
+   fidelity (transmission resolution, dpr, fps). Software rasterizers (no real GPU)
+   fall back to the lite material; no-WebGL skips the canvas. Mobile is **not** a
+   downgrade signal — only software / ≤2 GB / data-saver drop below `glass-high`.
 3. **Rendering pauses offscreen** via `active` (IntersectionObserver).
 4. **Entrance fade is CSS opacity** (compositor), not per-frame JS.
 5. **Text reveal is native CSS**, deliberately not JS/GSAP — main-thread contention

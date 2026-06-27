@@ -51,3 +51,15 @@ The constants at the top of `components/mobius/MobiusScene.tsx` are the knobs:
 Color comes from the `--mobius-color` CSS var (flips with the theme; edit those
 vars in `app/globals.css`). The möbius auto-fits and anchors to the hero band
 via `[data-mobius-anchor="hero"]`.
+
+### Device tiers
+
+`components/mobius/capability.ts` probes WebGL once on load and picks a render tier
+so the same glass look runs on every device with a real GPU, scaling only fidelity:
+
+- `glass-high` — full transmission glass (capable GPU)
+- `glass-low` — same glass, lower transmission resolution / dpr / fps (constrained GPU)
+- `lite` — a cheap transmission-free fresnel fallback (software rasterizers)
+- `none` — no WebGL: the canvas is skipped (the möbius is decorative)
+
+Force a tier for testing on a given device with `?glass`, `?glasslow`, or `?lite`.

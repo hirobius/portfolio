@@ -16,6 +16,19 @@ import { Canvas } from '@react-three/fiber';
 import { MobiusScene } from './MobiusScene';
 import { MOBIUS_BASE_COLOR } from './tokens';
 import { DEFAULT_MOBIUS_CONFIG, type MobiusConfig } from './mobiusConfig';
+import { detectMobiusTier, qualityForTier, type MobiusTier } from './capability';
+
+// Resolve the render tier once, synchronously, on the client's first render —
+// before the heavy canvas mounts. ?glass / ?glasslow / ?lite force a tier (for
+// testing each path on a given device); otherwise probe the GPU. See detectMobiusTier.
+function resolveTier(): MobiusTier {
+  if (typeof window === 'undefined') return 'glass-high';
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('glass')) return 'glass-high';
+  if (params.has('glasslow')) return 'glass-low';
+  if (params.has('lite')) return 'lite';
+  return detectMobiusTier();
+}
 
 function readCssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -37,13 +50,11 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
   const [reducedMotion, setReducedMotion] = useState(false);
   // Pause rendering when the hero (and the möbius with it) is scrolled offscreen.
   const [active, setActive] = useState(true);
-  // Material variant — opt into the transmission-free prototype with ?lite, so the
-  // two can be compared on a real GPU (the default stays the shipped glass).
-  const [variant, setVariant] = useState<'glass' | 'lite'>('glass');
+  // Render tier, resolved once on first client render (glass | lite | none).
+  const [tier] = useState<MobiusTier>(resolveTier);
 
   useEffect(() => {
-    // Material variant from the URL (?lite switches to the prototype).
-    if (new URLSearchParams(window.location.search).has('lite')) setVariant('lite');
+    if (tier === 'none') return;
 
     // Theme color — re-read whenever the <html> theme attributes change.
     const applyColor = () => {
@@ -92,12 +103,18 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('blur', onLeave);
     };
-  }, []);
+  }, [tier]);
 
   // The tuner can override the theme color with a custom HSL value.
   const effectiveColor = config.useCustomColor
     ? `hsl(${config.hue}, ${Math.round(config.saturation * 100)}%, ${Math.round(config.lightness * 100)}%)`
     : color;
+
+  // No functional WebGL — skip the canvas entirely (the möbius is decorative).
+  if (tier === 'none') return null;
+
+  // Fidelity knobs for this device tier (same glass look, scaled internals).
+  const quality = qualityForTier(tier);
 
   return (
     <Canvas
@@ -107,12 +124,13 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
       frameloop="demand"
       camera={{ position: [0, 0, 3.5], fov: 45 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-      dpr={[1, 1.5]}
+      dpr={[1, quality.dprMax]}
       onCreated={({ gl }) => {
         // Render the glass transmission pass at reduced resolution — big perf
-        // win, negligible quality loss on a frosted/refractive object.
+        // win, negligible quality loss on a frosted/refractive object. Lower
+        // tiers drop it further (see qualityForTier).
         const r = gl as unknown as { transmissionResolutionScale?: number };
-        if ('transmissionResolutionScale' in r) r.transmissionResolutionScale = 0.4;
+        if ('transmissionResolutionScale' in r) r.transmissionResolutionScale = quality.transmissionResolution;
         // Start invisible — the scene fades the canvas in after warm-up frames.
         gl.domElement.style.opacity = '0';
       }}
@@ -125,7 +143,8 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
         isLight={isLight}
         active={active}
         config={config}
-        variant={variant}
+        variant={quality.variant}
+        fps={quality.fps}
       />
     </Canvas>
   );

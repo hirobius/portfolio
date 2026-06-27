@@ -31,18 +31,19 @@ type Props = {
   isLight: boolean;
   active: boolean;
   config: MobiusConfig;
-  // 'glass' = the shipped MeshPhysicalMaterial (transmission + inner core + env IBL);
-  // 'lite' = the transmission-free fresnel prototype (no inner mesh, no env). Opt
-  // in with ?lite — lets the two be A/B'd on a real GPU (the sandbox can't render
-  // transmission, so this switch is the only honest way to compare them).
+  // 'glass' = the MeshPhysicalMaterial (transmission + inner core + env IBL), used
+  // on every real GPU; 'lite' = the transmission-free fresnel fallback (no inner
+  // mesh, no env) for software rasterizers. Chosen by device tier (see capability).
   variant: 'glass' | 'lite';
+  // Demand-loop target frame rate — lower tiers cap it lower (see qualityForTier).
+  fps: number;
 };
 
-// Cap the render loop well below the display refresh. The transmission pass
-// re-renders the whole scene each frame — the dominant GPU cost — so rendering
-// the subtle roll at ~38fps (instead of 60/120Hz) frees most of the frame
+// The render loop is capped well below the display refresh (the demand loop's
+// target fps comes from the device tier — see qualityForTier). The transmission
+// pass re-renders the whole scene each frame — the dominant GPU cost — so running
+// the subtle roll at ~30-38fps (instead of 60/120Hz) frees most of the frame
 // budget for smooth scroll compositing, with no visible loss on the animation.
-const TARGET_FPS = 38;
 
 const ANCHOR_SELECTOR = '[data-mobius-anchor="hero"]';
 
@@ -150,7 +151,7 @@ function buildMobiusTube(cfg: MobiusConfig): THREE.BufferGeometry {
   return geometry;
 }
 
-export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, config, variant }: Props) {
+export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, config, variant, fps }: Props) {
   const isGlass = variant === 'glass';
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
@@ -210,12 +211,12 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   const warmupRef = useRef(0);
   const fadeStartedRef = useRef(false);
 
-  // Render scheduling: throttle the demand loop to TARGET_FPS while the hero is on
-  // screen; render nothing once it scrolls away.
-  useDemandRenderLoop(active, TARGET_FPS);
+  // Render scheduling: throttle the demand loop to the tier's target fps while the
+  // hero is on screen; render nothing once it scrolls away.
+  useDemandRenderLoop(active, fps);
 
-  // Env IBL only exists for the glass — the lite material is unlit/emissive, so
-  // it needs nothing to reflect or refract (and skipping it keeps the A/B honest).
+  // Env IBL only exists for the glass — the lite fallback is unlit/emissive, so
+  // it needs nothing to reflect or refract (and skipping it keeps lite truly cheap).
   const envTexture = useMemo(() => {
     if (!isGlass) return null;
     const pmrem = new THREE.PMREMGenerator(gl);

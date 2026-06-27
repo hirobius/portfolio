@@ -8,14 +8,15 @@ type Args = { config: MobiusConfig; color: string; reducedMotion: boolean };
 const WHITE = new THREE.Color('#ffffff');
 
 /**
- * useMobiusMaterialLite — EXPERIMENT: a transmission-free möbius.
+ * useMobiusMaterialLite — the degraded fallback möbius.
  *
- * Fakes the dimensional glass with a cheap view-angle (fresnel) gradient, emitted
- * unlit: the body keeps the full saturated theme blue, grazing edges deepen (the
- * Beer-Lambert "thicker glass at the silhouette" read), and a tight sheen lifts
- * the most-facing surfaces. Keeps the roll vertex shader. No transmission pass,
- * no inner mesh, no env IBL — a fraction of the GPU cost. Trades real
- * refraction/translucency for a solid, dimensional read.
+ * For devices with no real GPU (software rasterizers like SwiftShader/llvmpipe),
+ * where the glass transmission pass is far too slow. Fakes the dimensional glass
+ * with a cheap view-angle (fresnel) gradient, emitted unlit: the body takes a deep
+ * theme blue, grazing edges deepen further (the Beer-Lambert "thicker glass at the
+ * silhouette" read), and a tight sheen lifts the most-facing surfaces. Keeps the
+ * roll vertex shader. No transmission pass, no inner mesh, no env IBL — a fraction
+ * of the GPU cost. Trades real refraction/translucency for a solid, dimensional read.
  */
 export function useMobiusMaterialLite({ config, color, reducedMotion }: Args) {
   const cfgRef = useRef(config);
@@ -101,10 +102,11 @@ export function useMobiusMaterialLite({ config, color, reducedMotion }: Args) {
   useFrame((_, delta) => {
     const d = Math.min(delta, 0.033);
     current.current.lerp(target.current, 1 - Math.exp(-d / 0.2));
-    // body = the full saturated theme blue; edges deepen; sheen = a soft cyan-white
-    uCore.current.value.copy(current.current);
-    uEdge.current.value.copy(current.current).multiplyScalar(0.4);
-    uSheen.current.value.copy(current.current).lerp(WHITE, 0.85).multiplyScalar(0.3);
+    // body = a deepened theme blue (echoing the cobalt the real glass reads as);
+    // edges deepen further; sheen = a restrained cyan-white lift on facing surfaces.
+    uCore.current.value.copy(current.current).multiplyScalar(0.92);
+    uEdge.current.value.copy(current.current).multiplyScalar(0.34);
+    uSheen.current.value.copy(current.current).lerp(WHITE, 0.85).multiplyScalar(0.24);
     const cfg = cfgRef.current;
     phase.current.value += (reducedMotion ? cfg.rollSpeed * 0.3 : cfg.rollSpeed) * d;
   });
