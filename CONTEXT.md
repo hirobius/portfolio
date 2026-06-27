@@ -36,13 +36,13 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
   fidelity knobs (transmission resolution, dpr cap, fps). Same glass *look* on every
   real GPU — only the internals scale. See `capability.ts`.
 - **Lite** — the cheap fresnel-emissive material (`useMobiusMaterialLite`): no
-  transmission / inner mesh / env. It's how the **static fallback image** is
-  pre-rendered, and is reachable live via `?lite` / the tuner — but production
-  low-power devices get the static image, not a live lite canvas.
+  transmission / inner mesh / env. Reachable live via `?lite` / the tuner. Kept as a
+  cheap alternate look, though it's no longer the production low-power fallback.
 - **Static fallback** — on devices with no real GPU (software rasterizers / no
   WebGL), the live canvas never mounts; `MobiusFallback` shows a pre-rendered PNG
-  (`/mobius-fallback.png`) in the hero band instead — zero three.js, no render loop.
-  `resolveMobiusMode()` decides canvas vs static (see `capability.ts`).
+  (`/mobius-fallback.png`, the **glass** möbius on transparent) in the hero band
+  instead — zero three.js, no render loop. `resolveMobiusMode()` decides canvas vs
+  static (see `capability.ts`).
 - **Active** — a render-gate from an IntersectionObserver; when false, nothing
   renders (the hero is offscreen).
 - **Entrance** — warm-up frames (absorb the first-render hitch) then a CSS opacity

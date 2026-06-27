@@ -64,5 +64,5 @@ so the same glass look runs on every device with a real GPU, scaling only fideli
   the hero band instead — zero three.js, no render loop
 
 Force a path for testing on a given device with `?glass`, `?glasslow`, or `?lite`
-(these always mount the live canvas). The static image is pre-rendered from the
-`lite` material; regenerate it if that material changes.
+(these always mount the live canvas). The static image is a pre-rendered capture of
+the glass möbius on a transparent background; regenerate it if the look changes.
