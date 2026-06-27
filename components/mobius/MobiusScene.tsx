@@ -19,6 +19,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { useDemandRenderLoop } from './useDemandRenderLoop';
+import { useAdaptiveTransmission } from './useAdaptiveTransmission';
 import { useAnchorFit } from './useAnchorFit';
 import { useMobiusMaterial } from './useMobiusMaterial';
 import { useMobiusMaterialLite } from './useMobiusMaterialLite';
@@ -37,6 +38,9 @@ type Props = {
   variant: 'glass' | 'lite';
   // Demand-loop target frame rate — lower tiers cap it lower (see qualityForTier).
   fps: number;
+  // The tier's base transmission render-target resolution; the adaptive hook steps
+  // it down from here if the device can't hold `fps` (glass only).
+  transmissionResolution: number;
 };
 
 // The render loop is capped well below the display refresh (the demand loop's
@@ -151,7 +155,17 @@ function buildMobiusTube(cfg: MobiusConfig): THREE.BufferGeometry {
   return geometry;
 }
 
-export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, config, variant, fps }: Props) {
+export function MobiusScene({
+  mouseRef,
+  color,
+  reducedMotion,
+  isLight,
+  active,
+  config,
+  variant,
+  fps,
+  transmissionResolution,
+}: Props) {
   const isGlass = variant === 'glass';
   const groupRef = useRef<THREE.Group>(null);
 
@@ -213,6 +227,10 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   // Render scheduling: throttle the demand loop to the tier's target fps while the
   // hero is on screen; render nothing once it scrolls away.
   useDemandRenderLoop(active, fps);
+
+  // Adaptive quality: if a real-but-weak GPU can't hold `fps`, quietly step the
+  // transmission resolution down (glass only; invisible on the frosted surface).
+  useAdaptiveTransmission(isGlass, transmissionResolution, fps);
 
   // Env IBL only exists for the glass — the lite fallback is unlit/emissive, so
   // it needs nothing to reflect or refract (and skipping it keeps lite truly cheap).

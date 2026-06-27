@@ -158,6 +158,7 @@ export function Mobius({
         config={config}
         variant={quality.variant}
         fps={quality.fps}
+        transmissionResolution={quality.transmissionResolution}
       />
     </Canvas>
   );

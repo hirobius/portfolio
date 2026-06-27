@@ -59,6 +59,7 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 | `components/motion/Reveal.tsx` | `<Reveal delay>{text}</Reveal>` | **deep** — hides split + SSR markup + a11y + CSS handoff |
 | `buildMobiusTube` (in MobiusScene) | `(config) → BufferGeometry` | **deep** — gnarly geometry behind one argument |
 | `components/mobius/useDemandRenderLoop.ts` | `(active, fps)` | **deep** — owns demand-mode rAF + throttle |
+| `components/mobius/useAdaptiveTransmission.ts` | `(enabled, baseRes, fps)` | **deep** — measures fps, steps transmission res down on weak GPUs |
 | `components/mobius/useAnchorFit.ts` | `(selector, outerDiameter) → ref` | **deep** — DOM box → world transform + dirty mgmt |
 | `components/mobius/useMobiusMaterial.ts` | `({config, color, …}) → {material, innerMaterial}` | **deep** — GLSL + uniforms + sync + color/roll |
 | `components/mobius/useMobiusMaterialLite.ts` | `({config, color, reducedMotion}) → {material}` | **deep** — the fallback fresnel shell + roll |
@@ -91,6 +92,10 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
    rasterizers / no WebGL) get a **static image** instead of the live canvas — the
    lightest possible floor. Mobile is **not** a downgrade signal — only software /
    ≤2 GB / data-saver drop below `glass-high`.
+2b. **Adaptive transmission** (`useAdaptiveTransmission`) catches the gap the static
+   probe can't: a real-but-weak GPU that holds the glass but can't sustain `fps`.
+   It measures achieved fps and steps the transmission render-target resolution down
+   (nearly invisible on the frosted surface). Downgrade-only — never oscillates.
 3. **Rendering pauses offscreen** via `active` (IntersectionObserver).
 4. **Entrance fade is CSS opacity** (compositor), not per-frame JS.
 5. **Text reveal is native CSS**, deliberately not JS/GSAP — main-thread contention
