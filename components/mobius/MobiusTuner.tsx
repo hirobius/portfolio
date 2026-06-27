@@ -112,6 +112,15 @@ const SECTIONS: Section[] = [
 
 const decimals = (step: number) => (step >= 1 ? 0 : step >= 0.01 ? 2 : 3);
 
+// Short label for the tab strip.
+const TAB_LABEL: Record<string, string> = {
+  'Acrylic glass': 'Glass',
+  'Color core': 'Core',
+  'Inner shape': 'Inner',
+  'Lite fallback': 'Lite',
+};
+const tabLabel = (title: string) => TAB_LABEL[title] ?? title;
+
 export function MobiusTuner({
   config,
   onChange,
@@ -121,6 +130,8 @@ export function MobiusTuner({
 }) {
   // Hidden by default — ?tune shows just the ⚙ FAB; click it to open the panel.
   const [open, setOpen] = useState(false);
+  // Active tab — one control group is shown at a time (switch via the tab strip).
+  const [tab, setTab] = useState(SECTIONS[0].title);
   // Which copy button last fired (section title, or '__all__') — for the ✓ feedback.
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -161,118 +172,130 @@ export function MobiusTuner({
     ? `hsl(${config.hue}, ${Math.round(config.saturation * 100)}%, ${Math.round(config.lightness * 100)}%)`
     : 'transparent';
 
+  const active = SECTIONS.find((s) => s.title === tab) ?? SECTIONS[0];
+
   return (
     <>
       <style>{CSS}</style>
       <div className="mbx-panel">
-        <div className="mbx-head">
-          <span className="mbx-title">möbius tuner</span>
-          <button className="mbx-hide" onClick={() => setOpen(false)}>
-            Hide
-          </button>
+        <div className="mbx-sticky">
+          <div className="mbx-head">
+            <span className="mbx-title">möbius tuner</span>
+            <button className="mbx-hide" onClick={() => setOpen(false)}>
+              Hide
+            </button>
+          </div>
+          <div className="mbx-tabs">
+            {SECTIONS.map((s) => (
+              <button
+                key={s.title}
+                className={'mbx-tab' + (s.title === tab ? ' on' : '')}
+                onClick={() => setTab(s.title)}
+              >
+                {tabLabel(s.title)}
+              </button>
+            ))}
+          </div>
         </div>
+
         <div className="mbx-body">
-          {SECTIONS.map((section) => (
-            <div key={section.title}>
-              <div className="mbx-sec-head">
-                <span className="mbx-sec">{section.title}</span>
-                <button className="mbx-seccopy" onClick={() => copySection(section)}>
-                  {copiedKey === section.title ? 'copied ✓' : 'copy json'}
-                </button>
-              </div>
+          <div className="mbx-sec-head">
+            <span className="mbx-sec">{active.title}</span>
+            <button className="mbx-seccopy" onClick={() => copySection(active)}>
+              {copiedKey === active.title ? 'copied ✓' : 'copy json'}
+            </button>
+          </div>
 
-              {section.title === 'Acrylic glass' && (
-                <div className="mbx-toggle">
-                  <button
-                    className={'mbx-tbtn' + (!config.flatShading ? ' on' : '')}
-                    onClick={() => set('flatShading', false)}
-                  >
-                    Smooth
-                  </button>
-                  <button
-                    className={'mbx-tbtn' + (config.flatShading ? ' on' : '')}
-                    onClick={() => set('flatShading', true)}
-                  >
-                    Faceted
-                  </button>
-                </div>
-              )}
-
-              {section.title === 'Color core' && (
-                <div className="mbx-toggle">
-                  <button
-                    className={'mbx-tbtn' + (!config.useGradient ? ' on' : '')}
-                    onClick={() => set('useGradient', false)}
-                  >
-                    Off
-                  </button>
-                  <button
-                    className={'mbx-tbtn' + (config.useGradient ? ' on' : '')}
-                    onClick={() => set('useGradient', true)}
-                  >
-                    Core on
-                  </button>
-                </div>
-              )}
-
-              {section.title === 'Inner shape' && (
-                <div className="mbx-toggle">
-                  <button
-                    className={'mbx-tbtn' + (!config.innerEnabled ? ' on' : '')}
-                    onClick={() => set('innerEnabled', false)}
-                  >
-                    Off
-                  </button>
-                  <button
-                    className={'mbx-tbtn' + (config.innerEnabled ? ' on' : '')}
-                    onClick={() => set('innerEnabled', true)}
-                  >
-                    Inner on
-                  </button>
-                </div>
-              )}
-
-              {section.title === 'Color' && (
-                <div className="mbx-toggle" style={{ alignItems: 'center' }}>
-                  <button
-                    className={'mbx-tbtn' + (!config.useCustomColor ? ' on' : '')}
-                    onClick={() => set('useCustomColor', false)}
-                  >
-                    Theme color
-                  </button>
-                  <button
-                    className={'mbx-tbtn' + (config.useCustomColor ? ' on' : '')}
-                    onClick={() => set('useCustomColor', true)}
-                  >
-                    Custom
-                  </button>
-                  <span className="mbx-swatch" style={{ background: swatch }} />
-                </div>
-              )}
-
-              {section.rows.map(([key, label, min, max, step]) => {
-                const dec = decimals(step);
-                const value = config[key] as number;
-                return (
-                  <label key={key} className="mbx-row">
-                    <span className="mbx-label">
-                      {label}
-                      <b className="mbx-val">{value.toFixed(dec)}</b>
-                    </span>
-                    <input
-                      className="mbx-range"
-                      type="range"
-                      min={min}
-                      max={max}
-                      step={step}
-                      value={value}
-                      onChange={(e) => set(key, parseFloat(e.target.value))}
-                    />
-                  </label>
-                );
-              })}
+          {active.title === 'Acrylic glass' && (
+            <div className="mbx-toggle">
+              <button
+                className={'mbx-tbtn' + (!config.flatShading ? ' on' : '')}
+                onClick={() => set('flatShading', false)}
+              >
+                Smooth
+              </button>
+              <button
+                className={'mbx-tbtn' + (config.flatShading ? ' on' : '')}
+                onClick={() => set('flatShading', true)}
+              >
+                Faceted
+              </button>
             </div>
-          ))}
+          )}
+
+          {active.title === 'Color core' && (
+            <div className="mbx-toggle">
+              <button
+                className={'mbx-tbtn' + (!config.useGradient ? ' on' : '')}
+                onClick={() => set('useGradient', false)}
+              >
+                Off
+              </button>
+              <button
+                className={'mbx-tbtn' + (config.useGradient ? ' on' : '')}
+                onClick={() => set('useGradient', true)}
+              >
+                Core on
+              </button>
+            </div>
+          )}
+
+          {active.title === 'Inner shape' && (
+            <div className="mbx-toggle">
+              <button
+                className={'mbx-tbtn' + (!config.innerEnabled ? ' on' : '')}
+                onClick={() => set('innerEnabled', false)}
+              >
+                Off
+              </button>
+              <button
+                className={'mbx-tbtn' + (config.innerEnabled ? ' on' : '')}
+                onClick={() => set('innerEnabled', true)}
+              >
+                Inner on
+              </button>
+            </div>
+          )}
+
+          {active.title === 'Color' && (
+            <div className="mbx-toggle" style={{ alignItems: 'center' }}>
+              <button
+                className={'mbx-tbtn' + (!config.useCustomColor ? ' on' : '')}
+                onClick={() => set('useCustomColor', false)}
+              >
+                Theme color
+              </button>
+              <button
+                className={'mbx-tbtn' + (config.useCustomColor ? ' on' : '')}
+                onClick={() => set('useCustomColor', true)}
+              >
+                Custom
+              </button>
+              <span className="mbx-swatch" style={{ background: swatch }} />
+            </div>
+          )}
+
+          {active.rows.map(([key, label, min, max, step]) => {
+            const dec = decimals(step);
+            const value = config[key] as number;
+            return (
+              <label key={key} className="mbx-row">
+                <span className="mbx-label">
+                  {label}
+                  <b className="mbx-val">{value.toFixed(dec)}</b>
+                </span>
+                <input
+                  className="mbx-range"
+                  type="range"
+                  min={min}
+                  max={max}
+                  step={step}
+                  value={value}
+                  onChange={(e) => set(key, parseFloat(e.target.value))}
+                />
+              </label>
+            );
+          })}
 
           <div className="mbx-btns">
             <button className="mbx-action mbx-copy" onClick={() => copyJson('__all__', config)}>
@@ -298,11 +321,22 @@ const CSS = `
   border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
   color: #e9e9ee; box-shadow: 0 12px 48px rgba(0,0,0,0.55); pointer-events: auto;
 }
-.mbx-head {
-  position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between;
-  align-items: center; padding: 14px 16px; background: rgba(14,14,18,0.98);
+.mbx-sticky {
+  position: sticky; top: 0; z-index: 2; background: rgba(14,14,18,0.98);
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
+.mbx-head {
+  display: flex; justify-content: space-between; align-items: center; padding: 14px 16px;
+}
+.mbx-tabs {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px;
+}
+.mbx-tab {
+  font: inherit; font-size: 11px; letter-spacing: 0.03em; cursor: pointer;
+  padding: 7px 11px; min-height: 32px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #aab0c4;
+}
+.mbx-tab.on { background: rgba(80,100,245,0.32); border-color: rgba(120,140,255,0.78); color: #fff; }
 .mbx-title { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #9db4ff; font-weight: 600; }
 .mbx-hide {
   font: inherit; font-size: 13px; color: #cfd6ff; background: rgba(80,100,245,0.16);
