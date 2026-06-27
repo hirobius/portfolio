@@ -53,6 +53,15 @@ export type MobiusConfig = {
   lightB: number;
   gradientScale: number; // fresnel falloff (core size)
 
+  // Lite fallback (transmission-free fresnel; used on software rasterizers). These
+  // shape the cheap material's view-angle gradient — see useMobiusMaterialLite.
+  liteBody: number; // body brightness × the theme blue (deepen with <1)
+  liteEdge: number; // grazing-edge brightness × the theme blue (deeper)
+  liteSheen: number; // intensity of the facing-surface sheen lift
+  liteSheenMix: number; // how far the sheen color lerps toward white (0..1)
+  liteFresnel: number; // edge fresnel power (higher = thinner edge band)
+  liteSheenPower: number; // sheen tightness (higher = smaller hotspot)
+
   // Nested inner triangle (same path, thinner tube)
   innerEnabled: boolean;
   innerScale: number; // overall size of the inner möbius (1 = same as outer)
@@ -105,6 +114,13 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   satB: 1,
   lightB: 1,
   gradientScale: 3.6,
+
+  liteBody: 0.92,
+  liteEdge: 0.34,
+  liteSheen: 0.24,
+  liteSheenMix: 0.85,
+  liteFresnel: 2.0,
+  liteSheenPower: 5.0,
 
   innerEnabled: true,
   innerScale: 0.86,

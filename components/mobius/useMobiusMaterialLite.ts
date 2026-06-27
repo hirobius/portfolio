@@ -93,6 +93,10 @@ export function useMobiusMaterialLite({ config, color, reducedMotion }: Args) {
   }, []);
   useEffect(() => () => material.dispose(), [material]);
 
+  // Strength params that don't need a recompile (run each render — live-tunable).
+  uFres.current.value = config.liteFresnel;
+  uSheenPow.current.value = config.liteSheenPower;
+
   const current = useRef(new THREE.Color(color));
   const target = useRef(new THREE.Color(color));
   useEffect(() => {
@@ -102,12 +106,12 @@ export function useMobiusMaterialLite({ config, color, reducedMotion }: Args) {
   useFrame((_, delta) => {
     const d = Math.min(delta, 0.033);
     current.current.lerp(target.current, 1 - Math.exp(-d / 0.2));
+    const cfg = cfgRef.current;
     // body = a deepened theme blue (echoing the cobalt the real glass reads as);
     // edges deepen further; sheen = a restrained cyan-white lift on facing surfaces.
-    uCore.current.value.copy(current.current).multiplyScalar(0.92);
-    uEdge.current.value.copy(current.current).multiplyScalar(0.34);
-    uSheen.current.value.copy(current.current).lerp(WHITE, 0.85).multiplyScalar(0.24);
-    const cfg = cfgRef.current;
+    uCore.current.value.copy(current.current).multiplyScalar(cfg.liteBody);
+    uEdge.current.value.copy(current.current).multiplyScalar(cfg.liteEdge);
+    uSheen.current.value.copy(current.current).lerp(WHITE, cfg.liteSheenMix).multiplyScalar(cfg.liteSheen);
     phase.current.value += (reducedMotion ? cfg.rollSpeed * 0.3 : cfg.rollSpeed) * d;
   });
 

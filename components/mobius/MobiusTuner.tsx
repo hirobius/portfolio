@@ -18,7 +18,11 @@ type NumKey = {
 
 type Slider = [key: NumKey, label: string, min: number, max: number, step: number];
 
-const SECTIONS: { title: string; rows: Slider[] }[] = [
+// `extras` lists the section's non-slider (boolean) keys so the per-section
+// "copy JSON" picks them up too.
+type Section = { title: string; rows: Slider[]; extras?: (keyof MobiusConfig)[] };
+
+const SECTIONS: Section[] = [
   {
     title: 'Geometry',
     rows: [
@@ -46,6 +50,7 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
   },
   {
     title: 'Acrylic glass',
+    extras: ['flatShading'],
     rows: [
       ['glassOpacity', 'Glass opacity (see core)', 0.1, 1, 0.02],
       ['transmission', 'Transmission (refract)', 0, 1, 0.02],
@@ -59,6 +64,7 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
   },
   {
     title: 'Color core',
+    extras: ['useGradient'],
     rows: [
       ['coreStrength', 'Core strength', 0, 1, 0.02],
       ['hueB', 'Core — hue', 0, 360, 1],
@@ -69,6 +75,7 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
   },
   {
     title: 'Color',
+    extras: ['useCustomColor'],
     rows: [
       ['hue', 'Hue', 0, 360, 1],
       ['saturation', 'Saturation', 0, 1, 0.01],
@@ -77,6 +84,7 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
   },
   {
     title: 'Inner shape',
+    extras: ['innerEnabled'],
     rows: [
       ['innerTubeRadius', 'Inner tube thickness', 0.03, 0.3, 0.005],
       ['innerScale', 'Inner size', 0.2, 1.3, 0.02],
@@ -85,6 +93,19 @@ const SECTIONS: { title: string; rows: Slider[] }[] = [
       ['innerCenterHue', 'Center — hue', 0, 360, 1],
       ['innerCenterSat', 'Center — saturation', 0, 1, 0.01],
       ['innerCenterLight', 'Center — lightness', 0, 1, 0.01],
+    ],
+  },
+  {
+    // The transmission-free fallback (software rasterizers). Force it with ?lite to
+    // see + tune it live on a real device.
+    title: 'Lite fallback',
+    rows: [
+      ['liteBody', 'Body strength', 0.4, 1.2, 0.01],
+      ['liteEdge', 'Edge deepen', 0, 1, 0.01],
+      ['liteSheen', 'Sheen strength', 0, 1, 0.01],
+      ['liteSheenMix', 'Sheen → white', 0, 1, 0.01],
+      ['liteFresnel', 'Edge fresnel power', 0.5, 5, 0.05],
+      ['liteSheenPower', 'Sheen tightness', 1, 12, 0.5],
     ],
   },
 ];
@@ -100,19 +121,29 @@ export function MobiusTuner({
 }) {
   // Hidden by default — ?tune shows just the ⚙ FAB; click it to open the panel.
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  // Which copy button last fired (section title, or '__all__') — for the ✓ feedback.
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const set = (key: keyof MobiusConfig, value: number | boolean) =>
     onChange({ ...config, [key]: value });
 
-  const copy = async () => {
+  const copyJson = async (label: string, obj: object) => {
     try {
-      await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+      setCopiedKey(label);
+      setTimeout(() => setCopiedKey((k) => (k === label ? null : k)), 1500);
     } catch {
       /* ignore */
     }
+  };
+
+  // Per-section copy: just that section's keys (sliders + boolean extras), so each
+  // group can be tweaked and sent back on its own.
+  const copySection = (section: Section) => {
+    const keys = [...section.rows.map((r) => r[0]), ...(section.extras ?? [])];
+    const obj: Record<string, number | boolean> = {};
+    for (const k of keys) obj[k] = config[k] as number | boolean;
+    copyJson(section.title, obj);
   };
 
   if (!open) {
@@ -143,7 +174,12 @@ export function MobiusTuner({
         <div className="mbx-body">
           {SECTIONS.map((section) => (
             <div key={section.title}>
-              <div className="mbx-sec">{section.title}</div>
+              <div className="mbx-sec-head">
+                <span className="mbx-sec">{section.title}</span>
+                <button className="mbx-seccopy" onClick={() => copySection(section)}>
+                  {copiedKey === section.title ? 'copied ✓' : 'copy json'}
+                </button>
+              </div>
 
               {section.title === 'Acrylic glass' && (
                 <div className="mbx-toggle">
@@ -239,8 +275,8 @@ export function MobiusTuner({
           ))}
 
           <div className="mbx-btns">
-            <button className="mbx-action mbx-copy" onClick={copy}>
-              {copied ? 'copied ✓' : 'copy config'}
+            <button className="mbx-action mbx-copy" onClick={() => copyJson('__all__', config)}>
+              {copiedKey === '__all__' ? 'copied ✓' : 'copy all'}
             </button>
             <button className="mbx-action mbx-reset" onClick={() => onChange(DEFAULT_MOBIUS_CONFIG)}>
               reset
@@ -278,6 +314,14 @@ const CSS = `
   font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
   color: rgba(157,180,255,0.62); margin: 18px 0 10px;
 }
+.mbx-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 10px; }
+.mbx-sec-head .mbx-sec { margin: 0; }
+.mbx-seccopy {
+  font: inherit; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #9db4ff; background: rgba(80,140,255,0.1); border: 1px solid rgba(120,140,255,0.32);
+  border-radius: 7px; padding: 5px 9px; min-height: 28px; cursor: pointer; flex-shrink: 0;
+}
+.mbx-seccopy:active { background: rgba(80,140,255,0.28); }
 .mbx-row { display: block; margin-bottom: 16px; }
 .mbx-label { display: flex; justify-content: space-between; font-size: 13.5px; color: #c8c8d2; margin-bottom: 9px; }
 .mbx-val { color: #9db4ff; font-weight: 600; }
