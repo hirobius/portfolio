@@ -20,9 +20,6 @@ export type MobiusConfig = {
 
   // Motion
   rollSpeed: number;
-  autoRotateX: number;
-  autoRotateY: number;
-  autoRotateZ: number;
   baseTiltX: number;
   baseTiltY: number;
 
@@ -44,14 +41,6 @@ export type MobiusConfig = {
   hue: number;
   saturation: number;
   lightness: number;
-
-  // Color core (inverse-fresnel tint on the outer glass)
-  useGradient: boolean;
-  coreStrength: number; // 0..1 how strongly the outer takes the core color
-  hueB: number;
-  satB: number;
-  lightB: number;
-  gradientScale: number; // fresnel falloff (core size)
 
   // Lite fallback (transmission-free fresnel; used on software rasterizers). These
   // shape the cheap material's view-angle gradient — see useMobiusMaterialLite.
@@ -86,9 +75,6 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   twistTurns: 0.5,
 
   rollSpeed: 0.35,
-  autoRotateX: 0,
-  autoRotateY: 0,
-  autoRotateZ: 0,
   baseTiltX: 0,
   baseTiltY: 0.18,
 
@@ -107,13 +93,6 @@ export const DEFAULT_MOBIUS_CONFIG: MobiusConfig = {
   hue: 246,
   saturation: 0.42,
   lightness: 0.72,
-
-  useGradient: true,
-  coreStrength: 0,
-  hueB: 0,
-  satB: 1,
-  lightB: 1,
-  gradientScale: 3.6,
 
   liteBody: 0.92,
   liteEdge: 0.34,

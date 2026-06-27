@@ -29,17 +29,13 @@ export function useMobiusMaterial({ config, color, isLight, reducedMotion }: Arg
   cfgRef.current = config;
 
   // Shader uniforms — mutated on config change / each frame; shared with the
-  // compiled shaders (roll phase + gradient core; inner fresnel).
+  // compiled shaders (roll phase; inner fresnel).
   const phase = useRef({ value: 0 });
-  const uColorB = useRef({ value: new THREE.Color('#a070ff') });
-  const uUseGradient = useRef({ value: 0 });
-  const uGradScale = useRef({ value: 0.7 });
   const uInnerCenter = useRef({ value: new THREE.Color('#3aa0ff') });
   const uInnerFresnel = useRef({ value: 2.5 });
   const uInnerGlow = useRef({ value: 1 });
 
-  // Frosted-acrylic glass with the in-place "roll" shader plus a gradient core
-  // blended along the loop height.
+  // Frosted-acrylic glass with the in-place "roll" vertex shader.
   const material = useMemo(() => {
     const m = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(color),
@@ -47,9 +43,6 @@ export function useMobiusMaterial({ config, color, isLight, reducedMotion }: Arg
     });
     m.onBeforeCompile = (shader) => {
       shader.uniforms.uPhase = phase.current;
-      shader.uniforms.uColorB = uColorB.current;
-      shader.uniforms.uUseGradient = uUseGradient.current;
-      shader.uniforms.uGradScale = uGradScale.current;
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
@@ -74,22 +67,6 @@ export function useMobiusMaterial({ config, color, isLight, reducedMotion }: Arg
           '#include <begin_vertex>',
           `vec3 mCenter = vec3(aCenter, 0.0);
           vec3 transformed = mCenter + mobiusRoll(position - mCenter, normalize(vec3(aAxis, 0.0)), uPhase);`,
-        );
-      shader.fragmentShader = shader.fragmentShader
-        .replace(
-          '#include <common>',
-          `#include <common>
-          uniform vec3 uColorB;
-          uniform float uUseGradient, uGradScale;`,
-        )
-        .replace(
-          '#include <normal_fragment_begin>',
-          `#include <normal_fragment_begin>
-          // Color core: surfaces facing the camera take the core color; it fades
-          // to clear (the white base) toward the grazing / silhouette edges.
-          float coreFade = pow(clamp(1.0 - dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), uGradScale);
-          vec3 cored = mix(uColorB, diffuseColor.rgb, coreFade);
-          diffuseColor.rgb = mix(diffuseColor.rgb, cored, uUseGradient);`,
         );
     };
     return m;
@@ -150,9 +127,6 @@ export function useMobiusMaterial({ config, color, isLight, reducedMotion }: Arg
   // Semi-transparent frosted shell so the inner core shows through reliably.
   material.transparent = config.glassOpacity < 0.999;
   material.opacity = config.glassOpacity;
-  uColorB.current.value.setHSL(config.hueB / 360, config.satB, config.lightB);
-  uUseGradient.current.value = config.useGradient ? config.coreStrength : 0;
-  uGradScale.current.value = config.gradientScale;
   uInnerCenter.current.value.setHSL(config.innerCenterHue / 360, config.innerCenterSat, config.innerCenterLight);
   uInnerFresnel.current.value = config.innerFresnelPower;
   uInnerGlow.current.value = config.innerGlow;

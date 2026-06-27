@@ -154,7 +154,6 @@ function buildMobiusTube(cfg: MobiusConfig): THREE.BufferGeometry {
 export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, config, variant, fps }: Props) {
   const isGlass = variant === 'glass';
   const groupRef = useRef<THREE.Group>(null);
-  const meshRef = useRef<THREE.Mesh>(null);
 
   // Keep the latest config available to the (long-lived) frame loop.
   const cfgRef = useRef(config);
@@ -286,23 +285,15 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     const tiltY = cfg.baseTiltY + mx * 0.3;
     group.rotation.x += (tiltX - group.rotation.x) * lerp;
     group.rotation.y += (tiltY - group.rotation.y) * lerp;
-
-    // Optional whole-shape auto-rotation (for inspecting; 0 by default).
-    const mesh = meshRef.current;
-    if (mesh) {
-      mesh.rotation.x += cfg.autoRotateX * d;
-      mesh.rotation.y += cfg.autoRotateY * d;
-      mesh.rotation.z += cfg.autoRotateZ * d;
-    }
   });
 
   // No scene lights: the glass reads entirely from transmission + the attenuation
-  // tint + the gradient-core shader. The studio lights contributed nothing to the
-  // shipped look (verified), so they're gone.
+  // tint. The studio lights contributed nothing to the shipped look (verified), so
+  // they're gone.
   return (
     <>
       <group ref={groupRef} scale={0}>
-        <mesh ref={meshRef} geometry={geometry} material={material} />
+        <mesh geometry={geometry} material={material} />
         {isGlass && config.innerEnabled && (
           <mesh geometry={innerGeometry} material={innerMaterial} scale={config.innerScale} />
         )}

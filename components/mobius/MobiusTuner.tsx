@@ -41,9 +41,6 @@ const SECTIONS: Section[] = [
     title: 'Motion',
     rows: [
       ['rollSpeed', 'Roll speed', 0, 1.5, 0.05],
-      ['autoRotateX', 'Auto-rotate X', -1, 1, 0.02],
-      ['autoRotateY', 'Auto-rotate Y', -1, 1, 0.02],
-      ['autoRotateZ', 'Auto-rotate Z', -1, 1, 0.02],
       ['baseTiltX', 'Tilt (forward lean)', -0.9, 0.4, 0.02],
       ['baseTiltY', 'Tilt (horizontal)', -0.9, 0.9, 0.02],
     ],
@@ -60,17 +57,6 @@ const SECTIONS: Section[] = [
       ['ior', 'IOR (refraction)', 1, 2.33, 0.01],
       ['tint', 'Color tint (0=clear)', 0, 1, 0.02],
       ['envIntensity', 'Reflections', 0, 2, 0.05],
-    ],
-  },
-  {
-    title: 'Color core',
-    extras: ['useGradient'],
-    rows: [
-      ['coreStrength', 'Core strength', 0, 1, 0.02],
-      ['hueB', 'Core — hue', 0, 360, 1],
-      ['satB', 'Core — saturation', 0, 1, 0.01],
-      ['lightB', 'Core — lightness', 0, 1, 0.01],
-      ['gradientScale', 'Core size (facing→edge)', 0.3, 6, 0.1],
     ],
   },
   {
@@ -115,7 +101,6 @@ const decimals = (step: number) => (step >= 1 ? 0 : step >= 0.01 ? 2 : 3);
 // Short label for the tab strip.
 const TAB_LABEL: Record<string, string> = {
   'Acrylic glass': 'Glass',
-  'Color core': 'Core',
   'Inner shape': 'Inner',
   'Lite fallback': 'Lite',
 };
@@ -125,7 +110,6 @@ const tabLabel = (title: string) => TAB_LABEL[title] ?? title;
 // you see what you're tuning; shared tabs (geometry/motion/color) leave it as-is.
 const TAB_VARIANT: Record<string, 'glass' | 'lite'> = {
   'Acrylic glass': 'glass',
-  'Color core': 'glass',
   'Inner shape': 'glass',
   'Lite fallback': 'lite',
 };
@@ -235,23 +219,6 @@ export function MobiusTuner({
                 onClick={() => set('flatShading', true)}
               >
                 Faceted
-              </button>
-            </div>
-          )}
-
-          {active.title === 'Color core' && (
-            <div className="mbx-toggle">
-              <button
-                className={'mbx-tbtn' + (!config.useGradient ? ' on' : '')}
-                onClick={() => set('useGradient', false)}
-              >
-                Off
-              </button>
-              <button
-                className={'mbx-tbtn' + (config.useGradient ? ' on' : '')}
-                onClick={() => set('useGradient', true)}
-              >
-                Core on
               </button>
             </div>
           )}
