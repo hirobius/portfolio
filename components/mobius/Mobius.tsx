@@ -37,8 +37,14 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
   const [reducedMotion, setReducedMotion] = useState(false);
   // Pause rendering when the hero (and the möbius with it) is scrolled offscreen.
   const [active, setActive] = useState(true);
+  // Material variant — opt into the transmission-free prototype with ?lite, so the
+  // two can be compared on a real GPU (the default stays the shipped glass).
+  const [variant, setVariant] = useState<'glass' | 'lite'>('glass');
 
   useEffect(() => {
+    // Material variant from the URL (?lite switches to the prototype).
+    if (new URLSearchParams(window.location.search).has('lite')) setVariant('lite');
+
     // Theme color — re-read whenever the <html> theme attributes change.
     const applyColor = () => {
       setColor(readCssVar('--mobius-color') || MOBIUS_BASE_COLOR);
@@ -119,6 +125,7 @@ export function Mobius({ config = DEFAULT_MOBIUS_CONFIG }: { config?: MobiusConf
         isLight={isLight}
         active={active}
         config={config}
+        variant={variant}
       />
     </Canvas>
   );

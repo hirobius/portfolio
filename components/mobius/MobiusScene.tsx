@@ -21,6 +21,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { useDemandRenderLoop } from './useDemandRenderLoop';
 import { useAnchorFit } from './useAnchorFit';
 import { useMobiusMaterial } from './useMobiusMaterial';
+import { useMobiusMaterialLite } from './useMobiusMaterialLite';
 import type { MobiusConfig } from './mobiusConfig';
 
 type Props = {
@@ -30,6 +31,11 @@ type Props = {
   isLight: boolean;
   active: boolean;
   config: MobiusConfig;
+  // 'glass' = the shipped MeshPhysicalMaterial (transmission + inner core + env IBL);
+  // 'lite' = the transmission-free fresnel prototype (no inner mesh, no env). Opt
+  // in with ?lite — lets the two be A/B'd on a real GPU (the sandbox can't render
+  // transmission, so this switch is the only honest way to compare them).
+  variant: 'glass' | 'lite';
 };
 
 // Cap the render loop well below the display refresh. The transmission pass
@@ -144,7 +150,8 @@ function buildMobiusTube(cfg: MobiusConfig): THREE.BufferGeometry {
   return geometry;
 }
 
-export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, config }: Props) {
+export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, config, variant }: Props) {
+  const isGlass = variant === 'glass';
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -207,13 +214,17 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
   // screen; render nothing once it scrolls away.
   useDemandRenderLoop(active, TARGET_FPS);
 
+  // Env IBL only exists for the glass — the lite material is unlit/emissive, so
+  // it needs nothing to reflect or refract (and skipping it keeps the A/B honest).
   const envTexture = useMemo(() => {
+    if (!isGlass) return null;
     const pmrem = new THREE.PMREMGenerator(gl);
     const tex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
     return tex;
-  }, [gl]);
+  }, [gl, isGlass]);
   useEffect(() => {
+    if (!envTexture) return;
     scene.environment = envTexture;
     return () => {
       if (scene.environment === envTexture) scene.environment = null;
@@ -221,9 +232,13 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     };
   }, [scene, envTexture]);
 
-  // Materials: the frosted glass + the inner core — their GLSL, uniforms, config
-  // sync, and the color/roll animation are all owned by the hook.
-  const { material, innerMaterial } = useMobiusMaterial({ config, color, isLight, reducedMotion });
+  // Materials: both hooks run (hooks can't be conditional), but only the selected
+  // material is attached to a rendered mesh below — so transmission/env cost is
+  // incurred only in glass mode. The glass hook owns the frosted shell + inner
+  // core; the lite hook owns the transmission-free fresnel shell.
+  const { material: glassMaterial, innerMaterial } = useMobiusMaterial({ config, color, isLight, reducedMotion });
+  const { material: liteMaterial } = useMobiusMaterialLite({ config, color, reducedMotion });
+  const material = isGlass ? glassMaterial : liteMaterial;
 
   // Fit: glue the shape to the hero's [data-mobius-anchor] box. Returns a base
   // transform { x, y, scale } re-measured only on layout changes (see hook); the
@@ -287,7 +302,7 @@ export function MobiusScene({ mouseRef, color, reducedMotion, isLight, active, c
     <>
       <group ref={groupRef} scale={0}>
         <mesh ref={meshRef} geometry={geometry} material={material} />
-        {config.innerEnabled && (
+        {isGlass && config.innerEnabled && (
           <mesh geometry={innerGeometry} material={innerMaterial} scale={config.innerScale} />
         )}
       </group>
