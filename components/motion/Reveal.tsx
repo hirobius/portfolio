@@ -21,8 +21,9 @@ type RevealProps = {
  * main thread — and it needs no JS, so it runs (and degrades to plain text)
  * without hydration.
  *
- * The split spans are aria-hidden; the wrapper carries the whole string as an
- * aria-label so assistive tech reads it as one phrase.
+ * Accessibility: the animated split spans are decorative (aria-hidden); the real
+ * phrase is carried by a visually-hidden copy so assistive tech reads it once,
+ * cleanly. (An aria-label on the roleless wrapper would be invalid ARIA.)
  */
 export function Reveal({ children, as: Tag = 'span', className, delay = 0 }: RevealProps) {
   const words = children.split(' ');
@@ -30,11 +31,8 @@ export function Reveal({ children, as: Tag = 'span', className, delay = 0 }: Rev
   const rootStyle = { '--reveal-base': `${delay}s` } as CSSProperties;
 
   return (
-    <Tag
-      className={['reveal', className].filter(Boolean).join(' ')}
-      style={rootStyle}
-      aria-label={children}
-    >
+    <Tag className={['reveal', className].filter(Boolean).join(' ')} style={rootStyle}>
+      <span className="reveal__sr">{children}</span>
       {words.map((word, wi) => (
         <Fragment key={wi}>
           <span className="reveal__word" aria-hidden="true">

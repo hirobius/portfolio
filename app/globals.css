@@ -111,6 +111,21 @@ body {
   --reveal-base: 0s;
 }
 
+/* The real phrase for assistive tech — visually hidden, still in the a11y tree.
+   The animated split chars are aria-hidden decoration. */
+.reveal__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .reveal__word {
   display: inline-block;
   white-space: nowrap; /* a word's characters stay together */
