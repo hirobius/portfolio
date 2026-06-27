@@ -35,9 +35,14 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
   `glass-high | glass-low | lite | none`; `qualityForTier()` maps that to the
   fidelity knobs (transmission resolution, dpr cap, fps). Same glass *look* on every
   real GPU — only the internals scale. See `capability.ts`.
-- **Lite** — the degraded fallback material (`useMobiusMaterialLite`): a cheap
-  fresnel-emissive shell, no transmission / inner mesh / env. Used only on software
-  rasterizers (no real GPU), where the glass is too slow.
+- **Lite** — the cheap fresnel-emissive material (`useMobiusMaterialLite`): no
+  transmission / inner mesh / env. It's how the **static fallback image** is
+  pre-rendered, and is reachable live via `?lite` / the tuner — but production
+  low-power devices get the static image, not a live lite canvas.
+- **Static fallback** — on devices with no real GPU (software rasterizers / no
+  WebGL), the live canvas never mounts; `MobiusFallback` shows a pre-rendered PNG
+  (`/mobius-fallback.png`) in the hero band instead — zero three.js, no render loop.
+  `resolveMobiusMode()` decides canvas vs static (see `capability.ts`).
 - **Active** — a render-gate from an IntersectionObserver; when false, nothing
   renders (the hero is offscreen).
 - **Entrance** — warm-up frames (absorb the first-render hitch) then a CSS opacity
@@ -57,7 +62,8 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 | `components/mobius/useAnchorFit.ts` | `(selector, outerDiameter) → ref` | **deep** — DOM box → world transform + dirty mgmt |
 | `components/mobius/useMobiusMaterial.ts` | `({config, color, …}) → {material, innerMaterial}` | **deep** — GLSL + uniforms + sync + color/roll |
 | `components/mobius/useMobiusMaterialLite.ts` | `({config, color, reducedMotion}) → {material}` | **deep** — the fallback fresnel shell + roll |
-| `components/mobius/capability.ts` | `detectMobiusTier()` · `qualityForTier(tier)` | **deep** — GPU probe → tier → fidelity knobs |
+| `components/mobius/capability.ts` | `detectMobiusTier()` · `qualityForTier()` · `resolveMobiusMode()` | **deep** — GPU probe → tier / fidelity / canvas-vs-static |
+| `components/mobius/MobiusFallback.tsx` | `<MobiusFallback />` (in hero anchor) | adapter — static image on low-power devices |
 | `components/mobius/Mobius.tsx` | `<Mobius config />` | adapter — DOM / theme / cursor / observer / tier glue |
 | `components/mobius/MobiusScene.tsx` | R3F props | orchestrator (~300 lines) — composes the deep modules |
 | view components (Hero / Work / Connect / …) | props / none | appropriately thin |
@@ -81,9 +87,10 @@ lib/motion.ts    entrance timing tokens (the reveal itself is CSS)
 2. **Demand loop capped at the tier's fps (~30–38)** — transmission is too costly to
    run at full refresh; weaker tiers cap lower.
 2a. **Capability tiering keeps the *same glass look* on every real GPU**, scaling only
-   fidelity (transmission resolution, dpr, fps). Software rasterizers (no real GPU)
-   fall back to the lite material; no-WebGL skips the canvas. Mobile is **not** a
-   downgrade signal — only software / ≤2 GB / data-saver drop below `glass-high`.
+   fidelity (transmission resolution, dpr, fps). Devices with no real GPU (software
+   rasterizers / no WebGL) get a **static image** instead of the live canvas — the
+   lightest possible floor. Mobile is **not** a downgrade signal — only software /
+   ≤2 GB / data-saver drop below `glass-high`.
 3. **Rendering pauses offscreen** via `active` (IntersectionObserver).
 4. **Entrance fade is CSS opacity** (compositor), not per-frame JS.
 5. **Text reveal is native CSS**, deliberately not JS/GSAP — main-thread contention

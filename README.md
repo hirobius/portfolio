@@ -59,7 +59,10 @@ so the same glass look runs on every device with a real GPU, scaling only fideli
 
 - `glass-high` — full transmission glass (capable GPU)
 - `glass-low` — same glass, lower transmission resolution / dpr / fps (constrained GPU)
-- `lite` — a cheap transmission-free fresnel fallback (software rasterizers)
-- `none` — no WebGL: the canvas is skipped (the möbius is decorative)
+- software rasterizer / no WebGL — the live canvas is skipped entirely; a static
+  pre-rendered image (`public/mobius-fallback.png`, shown by `MobiusFallback`) fills
+  the hero band instead — zero three.js, no render loop
 
-Force a tier for testing on a given device with `?glass`, `?glasslow`, or `?lite`.
+Force a path for testing on a given device with `?glass`, `?glasslow`, or `?lite`
+(these always mount the live canvas). The static image is pre-rendered from the
+`lite` material; regenerate it if that material changes.

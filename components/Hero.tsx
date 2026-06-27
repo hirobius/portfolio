@@ -1,6 +1,7 @@
 import { hero } from '@/lib/content';
 import { Reveal } from '@/components/motion';
 import { sequence } from '@/lib/motion';
+import { MobiusFallback } from '@/components/mobius/MobiusFallback';
 
 export function Hero() {
   return (
@@ -14,8 +15,12 @@ export function Hero() {
         </Reveal>
       </h1>
 
-      {/* Reserved band the möbius is fit to (see mobiusStore layout). */}
-      <span className="hero__mobius" data-mobius-anchor="hero" aria-hidden="true" />
+      {/* Reserved band the möbius is fit to (see mobiusStore layout). On low-power
+          devices the live canvas is skipped and MobiusFallback fills this with a
+          static image instead. */}
+      <span className="hero__mobius" data-mobius-anchor="hero" aria-hidden="true">
+        <MobiusFallback />
+      </span>
 
       <Reveal as="p" className="hero__tagline" delay={sequence.tagline}>
         {hero.tagline}
